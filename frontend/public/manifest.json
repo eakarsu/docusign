@@ -1,6 +1,7 @@
 {
   "short_name": "DocuSign AI",
   "name": "DocuSign AI Clone",
+  "icons": [],
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",
