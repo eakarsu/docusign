@@ -11,7 +11,9 @@
     "start": "cd backend && npm start",
     "test": "cd backend && npm test && cd ../frontend && npm test",
     "docker:dev": "docker-compose up --build",
-    "docker:prod": "docker-compose -f docker-compose.prod.yml up --build"
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up --build",
+    "start:dev": "./start-dev.sh",
+    "start:prod": "./start-prod.sh"
   },
   "keywords": ["docusign", "esignature", "ai", "documents"],
   "author": "Your Name",
