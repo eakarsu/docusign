@@ -70,7 +70,7 @@ export class AuthService {
   static generateToken(userId: string): string {
     return jwt.sign(
       { id: userId },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET as string,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
   }
@@ -86,7 +86,7 @@ export class AuthService {
 
     const resetToken = jwt.sign(
       { id: user.id },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET as string,
       { expiresIn: '1h' }
     );
 
