@@ -3,7 +3,12 @@ import { PrismaClient } from '@prisma/client';
 import { createError } from '../middleware/errorHandler';
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+  defaultHeaders: {
+    'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:3000',
+    'X-Title': 'DocuSign AI Clone'
+  }
 });
 
 const prisma = new PrismaClient();
@@ -31,7 +36,7 @@ export class AIService {
       `;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'openai/gpt-4o',
         messages: [
           {
             role: 'system',
@@ -97,7 +102,7 @@ export class AIService {
       `;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'openai/gpt-4o',
         messages: [
           {
             role: 'system',
@@ -145,7 +150,7 @@ export class AIService {
       `;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'openai/gpt-4o',
         messages: [
           {
             role: 'system',
