@@ -20,6 +20,13 @@ import {
   Alert,
   Fab,
   Tooltip,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Checkbox,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -31,6 +38,14 @@ import {
   Visibility as ViewIcon,
   CloudUpload as UploadIcon,
   SmartToy as AIIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  ViewList as ListViewIcon,
+  ViewModule as GridViewIcon,
+  Sort as SortIcon,
+  SelectAll as SelectAllIcon,
+  Share as ShareIcon,
+  Archive as ArchiveIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -70,6 +85,12 @@ const Documents: React.FC = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [sortBy, setSortBy] = useState<'date' | 'name' | 'status'>('date');
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
 
   // Mock data for demo - replace with real API calls when backend is ready
   const documents = {
@@ -218,20 +239,158 @@ const Documents: React.FC = () => {
 
   const documentList = documents?.data || [];
 
+  const filteredDocuments = documentList.filter(doc => {
+    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         doc.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || doc.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
+
+  const sortedDocuments = [...filteredDocuments].sort((a, b) => {
+    switch (sortBy) {
+      case 'name':
+        return a.title.localeCompare(b.title);
+      case 'status':
+        return a.status.localeCompare(b.status);
+      case 'date':
+      default:
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+  });
+
+  const handleBulkAction = (action: string) => {
+    console.log(`Bulk ${action} for documents:`, Array.from(selectedDocuments));
+    setSelectedDocuments(new Set());
+    setBulkSelectMode(false);
+  };
+
   return (
     <Box sx={{ p: 3 }}>
+      {/* Enhanced Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          Documents ({documentList.length})
+          Documents ({filteredDocuments.length})
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setUploadDialogOpen(true)}
-        >
-          Upload Document
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<SelectAllIcon />}
+            onClick={() => setBulkSelectMode(!bulkSelectMode)}
+            color={bulkSelectMode ? 'primary' : 'inherit'}
+          >
+            {bulkSelectMode ? 'Cancel' : 'Select'}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setUploadDialogOpen(true)}
+          >
+            Upload Document
+          </Button>
+        </Box>
       </Box>
+
+      {/* Search and Filter Bar */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+              }}
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={6} md={2}>
+            <TextField
+              select
+              fullWidth
+              label="Status"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              size="small"
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="DRAFT">Draft</MenuItem>
+              <MenuItem value="SENT">Sent</MenuItem>
+              <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+              <MenuItem value="COMPLETED">Completed</MenuItem>
+              <MenuItem value="CANCELLED">Cancelled</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={6} md={2}>
+            <TextField
+              select
+              fullWidth
+              label="Sort by"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              size="small"
+            >
+              <MenuItem value="date">Date</MenuItem>
+              <MenuItem value="name">Name</MenuItem>
+              <MenuItem value="status">Status</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+              <IconButton
+                onClick={() => setViewMode('list')}
+                color={viewMode === 'list' ? 'primary' : 'default'}
+              >
+                <ListViewIcon />
+              </IconButton>
+              <IconButton
+                onClick={() => setViewMode('grid')}
+                color={viewMode === 'grid' ? 'primary' : 'default'}
+              >
+                <GridViewIcon />
+              </IconButton>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Bulk Actions Bar */}
+      {bulkSelectMode && selectedDocuments.size > 0 && (
+        <Paper sx={{ p: 2, mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography>
+              {selectedDocuments.size} document(s) selected
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                startIcon={<ShareIcon />}
+                onClick={() => handleBulkAction('share')}
+                sx={{ color: 'inherit' }}
+              >
+                Share
+              </Button>
+              <Button
+                size="small"
+                startIcon={<ArchiveIcon />}
+                onClick={() => handleBulkAction('archive')}
+                sx={{ color: 'inherit' }}
+              >
+                Archive
+              </Button>
+              <Button
+                size="small"
+                startIcon={<DeleteIcon />}
+                onClick={() => handleBulkAction('delete')}
+                sx={{ color: 'inherit' }}
+              >
+                Delete
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+      )}
 
       {/* Drag and Drop Area */}
       <Box
@@ -259,39 +418,68 @@ const Documents: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* Documents Grid */}
-      {documentList.length === 0 ? (
+      {/* Documents Display */}
+      {sortedDocuments.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No documents yet
+            {searchQuery || filterStatus !== 'all' ? 'No documents match your filters' : 'No documents yet'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Upload your first document to get started with electronic signatures
+            {searchQuery || filterStatus !== 'all' 
+              ? 'Try adjusting your search or filter criteria'
+              : 'Upload your first document to get started with electronic signatures'
+            }
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setUploadDialogOpen(true)}
-          >
-            Upload Your First Document
-          </Button>
+          {!searchQuery && filterStatus === 'all' && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setUploadDialogOpen(true)}
+            >
+              Upload Your First Document
+            </Button>
+          )}
         </Box>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <Grid container spacing={3}>
-          {documentList.map((document: any) => (
+          {sortedDocuments.map((document: any) => (
             <Grid item xs={12} sm={6} md={4} key={document.id}>
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <CardContent sx={{ flexGrow: 1 }}>
+              <Card sx={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                position: 'relative',
+                '&:hover': { boxShadow: 4 }
+              }}>
+                {bulkSelectMode && (
+                  <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 1 }}>
+                    <Checkbox
+                      checked={selectedDocuments.has(document.id)}
+                      onChange={(e) => {
+                        const newSelected = new Set(selectedDocuments);
+                        if (e.target.checked) {
+                          newSelected.add(document.id);
+                        } else {
+                          newSelected.delete(document.id);
+                        }
+                        setSelectedDocuments(newSelected);
+                      }}
+                    />
+                  </Box>
+                )}
+                <CardContent sx={{ flexGrow: 1, pt: bulkSelectMode ? 6 : 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Typography variant="h6" component="h2" sx={{ flexGrow: 1, mr: 1 }}>
                       {document.title}
                     </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(e, document)}
-                    >
-                      <MoreIcon />
-                    </IconButton>
+                    {!bulkSelectMode && (
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(e, document)}
+                      >
+                        <MoreIcon />
+                      </IconButton>
+                    )}
                   </Box>
 
                   {document.description && (
@@ -337,11 +525,87 @@ const Documents: React.FC = () => {
                       Edit
                     </Button>
                   )}
+                  <Button
+                    size="small"
+                    startIcon={<ShareIcon />}
+                  >
+                    Share
+                  </Button>
                 </CardActions>
               </Card>
             </Grid>
           ))}
         </Grid>
+      ) : (
+        // List View
+        <Paper>
+          <List>
+            {sortedDocuments.map((document: any, index) => (
+              <React.Fragment key={document.id}>
+                <ListItem
+                  sx={{
+                    '&:hover': { bgcolor: 'action.hover' },
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => navigate(`/documents/${document.id}/edit`)}
+                >
+                  {bulkSelectMode && (
+                    <ListItemIcon>
+                      <Checkbox
+                        checked={selectedDocuments.has(document.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          const newSelected = new Set(selectedDocuments);
+                          if (e.target.checked) {
+                            newSelected.add(document.id);
+                          } else {
+                            newSelected.delete(document.id);
+                          }
+                          setSelectedDocuments(newSelected);
+                        }}
+                      />
+                    </ListItemIcon>
+                  )}
+                  <ListItemIcon>
+                    <DocumentIcon />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={document.title}
+                    secondary={
+                      <Box>
+                        <Typography variant="body2" component="span">
+                          {document.description}
+                        </Typography>
+                        <br />
+                        <Typography variant="caption" color="text.secondary">
+                          Created: {new Date(document.createdAt).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip
+                      label={document.status}
+                      color={getStatusColor(document.status) as any}
+                      size="small"
+                    />
+                    {!bulkSelectMode && (
+                      <IconButton
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMenuOpen(e, document);
+                        }}
+                      >
+                        <MoreIcon />
+                      </IconButton>
+                    )}
+                  </Box>
+                </ListItem>
+                {index < sortedDocuments.length - 1 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
+        </Paper>
       )}
 
       {/* Document Actions Menu */}
