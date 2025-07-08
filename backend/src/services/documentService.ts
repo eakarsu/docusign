@@ -160,7 +160,16 @@ export class DocumentService {
     userId: string
   ) {
     const document = await prisma.document.findUnique({
-      where: { id: documentId }
+      where: { id: documentId },
+      include: {
+        sender: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
     });
 
     if (!document) {
@@ -208,7 +217,28 @@ export class DocumentService {
       data: { status: 'SENT' }
     });
 
-    // TODO: Send email notifications to signers
+    // Send email notifications to signers
+    const { EmailService } = await import('./emailService');
+    const senderName = `${document.sender.firstName} ${document.sender.lastName}`;
+    
+    await Promise.all(
+      signers.map(async (signer) => {
+        const signUrl = `${process.env.FRONTEND_URL}/sign/${documentId}`;
+        
+        try {
+          await EmailService.sendSignatureRequest({
+            documentTitle: document.title,
+            senderName,
+            signerName: signer.name,
+            documentId,
+            signUrl,
+          });
+        } catch (error) {
+          console.error(`Failed to send email to ${signer.email}:`, error);
+          // Don't fail the entire operation if email fails
+        }
+      })
+    );
 
     return signatures;
   }
@@ -251,13 +281,36 @@ export class DocumentService {
     const allSigned = allSignatures.every(sig => sig.status === 'SIGNED');
 
     if (allSigned) {
-      await prisma.document.update({
+      const document = await prisma.document.update({
         where: { id: documentId },
         data: {
           status: 'COMPLETED',
           completedAt: new Date()
+        },
+        include: {
+          sender: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
         }
       });
+
+      // Send completion notification to document sender
+      const { EmailService } = await import('./emailService');
+      
+      try {
+        await EmailService.sendDocumentCompleted({
+          documentTitle: document.title,
+          senderEmail: document.sender.email,
+          senderName: `${document.sender.firstName} ${document.sender.lastName}`,
+          completedAt: document.completedAt!.toISOString(),
+        });
+      } catch (error) {
+        console.error('Failed to send completion email:', error);
+      }
     }
 
     return updatedSignature;
