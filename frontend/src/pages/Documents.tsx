@@ -71,28 +71,65 @@ const Documents: React.FC = () => {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
 
-  const { data: documents, isLoading, error } = useQuery({
-    queryKey: ['documents'],
-    queryFn: () => documentAPI.getDocuments(),
-  });
+  // Mock data for demo - replace with real API calls when backend is ready
+  const documents = {
+    data: [
+      {
+        id: '1',
+        title: 'Service Agreement',
+        description: 'Annual service agreement contract',
+        status: 'COMPLETED',
+        createdAt: '2024-01-15T10:00:00Z',
+        updatedAt: '2024-01-15T10:00:00Z',
+        sender: { firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
+        signatures: [{ status: 'SIGNED', signerEmail: 'client@example.com', signerName: 'Client Name' }],
+        _count: { signatures: 1 }
+      },
+      {
+        id: '2',
+        title: 'NDA Document',
+        description: 'Non-disclosure agreement',
+        status: 'SENT',
+        createdAt: '2024-01-14T10:00:00Z',
+        updatedAt: '2024-01-14T10:00:00Z',
+        sender: { firstName: 'Jane', lastName: 'Smith', email: 'jane@example.com' },
+        signatures: [{ status: 'PENDING', signerEmail: 'partner@example.com', signerName: 'Partner Name' }],
+        _count: { signatures: 1 }
+      },
+      {
+        id: '3',
+        title: 'Contract Amendment',
+        description: 'Amendment to existing contract',
+        status: 'DRAFT',
+        createdAt: '2024-01-13T10:00:00Z',
+        updatedAt: '2024-01-13T10:00:00Z',
+        sender: { firstName: 'Demo', lastName: 'User', email: 'demo@example.com' },
+        signatures: [],
+        _count: { signatures: 0 }
+      }
+    ]
+  };
+  const isLoading = false;
+  const error = null;
 
-  const uploadMutation = useMutation({
-    mutationFn: (formData: FormData) => documentAPI.uploadDocument(formData),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
+  const uploadMutation = {
+    mutate: (formData: FormData) => {
+      // Mock upload - in real app this would call documentAPI.uploadDocument
+      console.log('Mock upload:', formData);
       setUploadDialogOpen(false);
       setUploadTitle('');
       setUploadDescription('');
       setUploadedFile(null);
     },
-  });
+    isPending: false
+  };
 
-  const analyzeDocumentMutation = useMutation({
-    mutationFn: (documentId: string) => aiAPI.analyzeDocument(documentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
-    },
-  });
+  const analyzeDocumentMutation = {
+    mutate: (documentId: string) => {
+      // Mock analysis - in real app this would call aiAPI.analyzeDocument
+      console.log('Mock analyze:', documentId);
+    }
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {

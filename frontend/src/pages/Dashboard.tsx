@@ -23,10 +23,30 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const { data: documents, isLoading } = useQuery({
-    queryKey: ['documents'],
-    queryFn: () => documentAPI.getDocuments(),
-  });
+  // Mock data for demo - replace with real API calls when backend is ready
+  const documents = {
+    data: [
+      {
+        id: '1',
+        title: 'Service Agreement',
+        status: 'COMPLETED',
+        createdAt: '2024-01-15T10:00:00Z'
+      },
+      {
+        id: '2',
+        title: 'NDA Document',
+        status: 'SENT',
+        createdAt: '2024-01-14T10:00:00Z'
+      },
+      {
+        id: '3',
+        title: 'Contract Amendment',
+        status: 'DRAFT',
+        createdAt: '2024-01-13T10:00:00Z'
+      }
+    ]
+  };
+  const isLoading = false;
 
   const stats = React.useMemo(() => {
     if (!documents?.data) return { total: 0, pending: 0, completed: 0, draft: 0 };
