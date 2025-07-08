@@ -68,9 +68,14 @@ export class AuthService {
   }
 
   static generateToken(userId: string): string {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET is not defined');
+    }
+    
     return jwt.sign(
       { id: userId },
-      process.env.JWT_SECRET as string,
+      secret,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
   }
@@ -84,9 +89,14 @@ export class AuthService {
       throw createError('User not found', 404);
     }
 
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET is not defined');
+    }
+    
     const resetToken = jwt.sign(
       { id: user.id },
-      process.env.JWT_SECRET as string,
+      secret,
       { expiresIn: '1h' }
     );
 
