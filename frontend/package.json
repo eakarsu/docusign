@@ -55,6 +55,5 @@
   "devDependencies": {
     "@types/fabric": "^5.3.7",
     "@types/react-signature-canvas": "^1.0.7"
-  },
-  "proxy": "http://localhost:3001"
+  }
 }
