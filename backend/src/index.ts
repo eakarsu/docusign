@@ -36,6 +36,9 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.'
 });
 
+// Trust proxy for rate limiting
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
