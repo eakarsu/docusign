@@ -56,7 +56,7 @@ const SignDocument: React.FC = () => {
   const steps = ['Review Document', 'Sign Document', 'Complete'];
 
   const signatureFields = document?.data?.fields?.filter(
-    field => field.type === 'SIGNATURE' || field.type === 'INITIAL'
+    (field: any) => field.type === 'SIGNATURE' || field.type === 'INITIAL'
   ) || [];
 
   const handleStartSigning = () => {
@@ -90,7 +90,7 @@ const SignDocument: React.FC = () => {
     }
   };
 
-  const allFieldsSigned = signatureFields.every(field => 
+  const allFieldsSigned = signatureFields.every((field: any) => 
     signedFields.has(field.id!)
   );
 
@@ -161,7 +161,7 @@ const SignDocument: React.FC = () => {
               </Typography>
               
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                {signatureFields.map((field, index) => (
+                {signatureFields.map((field: any, index: number) => (
                   <Chip
                     key={field.id}
                     label={`${field.type} - Page ${field.page}`}
@@ -268,8 +268,8 @@ const SignDocument: React.FC = () => {
 
             {/* Signature Field Overlays */}
             {currentStep === 1 && signatureFields
-              .filter(field => field.page === currentPage)
-              .map((field) => (
+              .filter((field: any) => field.page === currentPage)
+              .map((field: any) => (
                 <Box
                   key={field.id}
                   style={getFieldPosition(field)}

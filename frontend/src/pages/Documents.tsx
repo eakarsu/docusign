@@ -241,7 +241,7 @@ const Documents: React.FC = () => {
         </Box>
       ) : (
         <Grid container spacing={3}>
-          {documentList.map((document: Document) => (
+          {documentList.map((document: any) => (
             <Grid item xs={12} sm={6} md={4} key={document.id}>
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <CardContent sx={{ flexGrow: 1 }}>

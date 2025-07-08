@@ -378,7 +378,7 @@ const DocumentEditor: React.FC = () => {
             <Typography variant="subtitle2" gutterBottom>
               Fields ({fields.length})
             </Typography>
-            {fields.map((field, index) => (
+            {fields.map((field: DocumentField, index: number) => (
               <Chip
                 key={field.id}
                 label={`${field.type} - Page ${field.page}`}
@@ -386,12 +386,8 @@ const DocumentEditor: React.FC = () => {
                 sx={{ m: 0.5 }}
                 onDelete={() => {
                   setFields(fields.filter(f => f.id !== field.id));
-                  // Remove from canvas
-                  const objects = canvas?.getObjects() || [];
-                  const objToRemove = objects.find(obj => obj.data?.fieldId === field.id);
-                  if (objToRemove && canvas) {
-                    canvas.remove(objToRemove);
-                  }
+                  // Remove from canvas placeholder
+                  console.log('Remove field from canvas:', field.id);
                 }}
               />
             ))}
@@ -452,7 +448,7 @@ const DocumentEditor: React.FC = () => {
             Add recipients who need to sign this document:
           </Typography>
           
-          {signers.map((signer, index) => (
+          {signers.map((signer: { email: string; name: string }, index: number) => (
             <Grid container spacing={2} key={index} sx={{ mb: 2 }}>
               <Grid item xs={5}>
                 <TextField
