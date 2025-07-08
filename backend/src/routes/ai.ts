@@ -29,9 +29,9 @@ router.post('/analyze/:documentId', authenticate, async (req: AuthRequest, res, 
     const documentText = "Sample document text for analysis";
     
     const analysis = await AIService.analyzeDocument(req.params.documentId, documentText);
-    res.json(analysis);
+    return res.json(analysis);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -67,9 +67,9 @@ router.post('/generate-contract', authenticate, async (req: AuthRequest, res, ne
     }
 
     const contract = await AIService.generateContract(prompt, contractType);
-    res.json({ contract });
+    return res.json({ contract });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -97,9 +97,9 @@ router.post('/detect-fields/:documentId', authenticate, async (req: AuthRequest,
     const documentText = "Sample document text for field detection";
     
     const fields = await AIService.detectFields(documentText);
-    res.json({ fields });
+    return res.json({ fields });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

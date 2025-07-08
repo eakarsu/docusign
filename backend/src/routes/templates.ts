@@ -41,9 +41,9 @@ router.get('/', authenticate, async (req: AuthRequest, res, next) => {
       }
     });
 
-    res.json(templates);
+    return res.json(templates);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -105,9 +105,9 @@ router.post('/', authenticate, async (req: AuthRequest, res, next) => {
       }
     });
 
-    res.status(201).json(template);
+    return res.status(201).json(template);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

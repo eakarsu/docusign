@@ -36,9 +36,9 @@ const upload = multer({
 router.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const documents = await DocumentService.getDocuments(req.user!.id, req.user!.role);
-    res.json(documents);
+    return res.json(documents);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -65,9 +65,9 @@ router.get('/', authenticate, async (req: AuthRequest, res, next) => {
 router.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const document = await DocumentService.getDocument(req.params.id, req.user!.id, req.user!.role);
-    res.json(document);
+    return res.json(document);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
