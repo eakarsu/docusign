@@ -44,7 +44,8 @@ declare module 'react-signature-canvas' {
     fromData(data: Array<{ x: number; y: number; time: number }[]>): void;
   }
 
-  export default SignatureCanvas;
+  const SignatureCanvas: React.ComponentType<SignatureCanvasProps>;
+  export = SignatureCanvas;
 }
 
 interface SignatureCaptureProps {
