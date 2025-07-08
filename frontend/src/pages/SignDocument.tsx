@@ -18,6 +18,7 @@ import {
   Visibility as ViewIcon,
   Edit as SignIcon,
   CheckCircle as CompleteIcon,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -95,11 +96,11 @@ const SignDocument: React.FC = () => {
   );
 
   const getFieldPosition = (field: any) => ({
-    position: 'absolute',
-    left: `${field.x}px`,
-    top: `${field.y}px`,
-    width: `${field.width}px`,
-    height: `${field.height}px`,
+    position: 'absolute' as const,
+    left: field.x,
+    top: field.y,
+    width: field.width,
+    height: field.height,
     border: signedFields.has(field.id) ? '2px solid #4caf50' : '2px dashed #ff9800',
     backgroundColor: signedFields.has(field.id) ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
     cursor: 'pointer',
@@ -272,7 +273,7 @@ const SignDocument: React.FC = () => {
               .map((field: any) => (
                 <Box
                   key={field.id}
-                  style={getFieldPosition(field)}
+                  sx={getFieldPosition(field)}
                   onClick={() => handleSignField(field.id!)}
                 >
                   {signedFields.has(field.id!) ? (
