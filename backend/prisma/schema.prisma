@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  SENDER
+  SIGNER
+  VIEWER
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum SignatureStatus {
+  PENDING
+  SIGNED
+  DECLINED
+}
+
+enum FieldType {
+  SIGNATURE
+  INITIAL
+  DATE
+  TEXT
+  CHECKBOX
+  DROPDOWN
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password          String
+  firstName         String
+  lastName          String
+  role              UserRole  @default(SENDER)
+  isEmailVerified   Boolean   @default(false)
+  emailVerifyToken  String?
+  resetPasswordToken String?
+  resetPasswordExpires DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  sentDocuments     Document[] @relation("DocumentSender")
+  signatures        Signature[]
+  auditLogs         AuditLog[]
+  templates         Template[]
+
+  @@map("users")
+}
+
+model Document {
+  id              String         @id @default(uuid())
+  title           String
+  description     String?
+  originalFileName String
+  fileUrl         String
+  fileSize        Int
+  mimeType        String
+  status          DocumentStatus @default(DRAFT)
+  senderId        String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  expiresAt       DateTime?
+  completedAt     DateTime?
+
+  // Relations
+  sender          User           @relation("DocumentSender", fields: [senderId], references: [id])
+  fields          DocumentField[]
+  signatures      Signature[]
+  auditLogs       AuditLog[]
+  aiAnalysis      AIAnalysis?
+
+  @@map("documents")
+}
+
+model DocumentField {
+  id           String    @id @default(uuid())
+  documentId   String
+  type         FieldType
+  label        String
+  x            Float
+  y            Float
+  width        Float
+  height       Float
+  page         Int       @default(1)
+  required     Boolean   @default(true)
+  signerEmail  String?
+  value        String?
+  createdAt    DateTime  @default(now())
+
+  // Relations
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_fields")
+}
+
+model Signature {
+  id          String          @id @default(uuid())
+  documentId  String
+  signerId    String
+  signerEmail String
+  signerName  String
+  status      SignatureStatus @default(PENDING)
+  signedAt    DateTime?
+  signatureData String?        // Base64 encoded signature image
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime        @default(now())
+
+  // Relations
+  document    Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer      User            @relation(fields: [signerId], references: [id])
+
+  @@map("signatures")
+}
+
+model Template {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  creatorId   String
+  fileUrl     String
+  fields      Json      // Serialized field configuration
+  isPublic    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  creator     User      @relation(fields: [creatorId], references: [id])
+
+  @@map("templates")
+}
+
+model AIAnalysis {
+  id           String   @id @default(uuid())
+  documentId   String   @unique
+  summary      String?
+  riskAnalysis Json?    // Risk assessment results
+  suggestions  Json?    // AI suggestions for improvement
+  compliance   Json?    // Compliance check results
+  createdAt    DateTime @default(now())
+
+  // Relations
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("ai_analysis")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  documentId String?
+  userId     String?
+  action     String
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  document   Document? @relation(fields: [documentId], references: [id])
+  user       User?     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
