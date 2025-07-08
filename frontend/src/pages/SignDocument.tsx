@@ -69,7 +69,7 @@ const SignDocument: React.FC = () => {
   };
 
   const handleSignField = (fieldId: string) => {
-    const fieldIndex = signatureFields.findIndex(field => field.id === fieldId);
+    const fieldIndex = signatureFields.findIndex((field: any) => field.id === fieldId);
     setCurrentFieldIndex(fieldIndex);
     setSignatureDialogOpen(true);
   };
@@ -77,7 +77,7 @@ const SignDocument: React.FC = () => {
   const handleSaveSignature = (signatureData: string) => {
     if (currentFieldIndex >= 0) {
       const field = signatureFields[currentFieldIndex];
-      setSignedFields(prev => new Set([...prev, field.id!]));
+      setSignedFields(prev => new Set(Array.from(prev).concat([field.id!])));
       
       // Move to next field or complete if all signed
       if (currentFieldIndex < signatureFields.length - 1) {

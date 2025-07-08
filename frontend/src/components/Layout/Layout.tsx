@@ -21,7 +21,7 @@ import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Description as DocumentIcon,
-  Template as TemplateIcon,
+  Article as TemplateIcon,
   SmartToy as AIIcon,
   AccountCircle,
 } from '@mui/icons-material';

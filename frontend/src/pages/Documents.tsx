@@ -278,7 +278,7 @@ const Documents: React.FC = () => {
 
                   {document._count.signatures > 0 && (
                     <Typography variant="caption" color="text.secondary" display="block">
-                      Signatures: {document.signatures.filter(s => s.status === 'SIGNED').length} / {document._count.signatures}
+                      Signatures: {document.signatures.filter((s: any) => s.status === 'SIGNED').length} / {document._count.signatures}
                     </Typography>
                   )}
                 </CardContent>

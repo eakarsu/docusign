@@ -20,6 +20,33 @@ import {
 } from '@mui/icons-material';
 import SignatureCanvas from 'react-signature-canvas';
 
+// Type declaration for react-signature-canvas
+declare module 'react-signature-canvas' {
+  interface SignatureCanvasProps {
+    canvasProps?: React.CanvasHTMLAttributes<HTMLCanvasElement>;
+    backgroundColor?: string;
+    penColor?: string;
+    dotSize?: number;
+    minWidth?: number;
+    maxWidth?: number;
+    throttle?: number;
+    minDistance?: number;
+    velocityFilterWeight?: number;
+    onBegin?: () => void;
+    onEnd?: () => void;
+  }
+
+  class SignatureCanvas extends React.Component<SignatureCanvasProps> {
+    clear(): void;
+    isEmpty(): boolean;
+    toDataURL(type?: string, encoderOptions?: number): string;
+    toData(): Array<{ x: number; y: number; time: number }[]>;
+    fromData(data: Array<{ x: number; y: number; time: number }[]>): void;
+  }
+
+  export default SignatureCanvas;
+}
+
 interface SignatureCaptureProps {
   open: boolean;
   onClose: () => void;
