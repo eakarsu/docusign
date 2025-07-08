@@ -36,9 +36,9 @@ router.get('/', authenticate, authorize(['ADMIN']), async (req: AuthRequest, res
       }
     });
 
-    res.json(users);
+    return res.json(users);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -88,9 +88,9 @@ router.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(user);
+    return res.json(user);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
