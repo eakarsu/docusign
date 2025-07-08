@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -11,7 +11,6 @@ import {
   TextField,
   Typography,
   Paper,
-  IconButton,
 } from '@mui/material';
 import {
   Clear as ClearIcon,
@@ -36,16 +35,13 @@ declare module 'react-signature-canvas' {
     onEnd?: () => void;
   }
 
-  class SignatureCanvas extends React.Component<SignatureCanvasProps> {
+  export default class SignatureCanvas extends React.Component<SignatureCanvasProps> {
     clear(): void;
     isEmpty(): boolean;
     toDataURL(type?: string, encoderOptions?: number): string;
     toData(): Array<{ x: number; y: number; time: number }[]>;
     fromData(data: Array<{ x: number; y: number; time: number }[]>): void;
   }
-
-  const SignatureCanvas: React.ComponentType<SignatureCanvasProps>;
-  export = SignatureCanvas;
 }
 
 interface SignatureCaptureProps {
