@@ -76,7 +76,7 @@ export class AuthService {
     return jwt.sign(
       { id: userId },
       secret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions
     );
   }
 
@@ -97,7 +97,7 @@ export class AuthService {
     const resetToken = jwt.sign(
       { id: user.id },
       secret,
-      { expiresIn: '1h' }
+      { expiresIn: '1h' } as jwt.SignOptions
     );
 
     await prisma.user.update({
