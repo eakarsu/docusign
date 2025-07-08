@@ -32,9 +32,9 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     req.user = user;
-    next();
+    return next();
   } catch (error) {
-    res.status(401).json({ error: 'Invalid token.' });
+    return res.status(401).json({ error: 'Invalid token.' });
   }
 };
 
@@ -48,6 +48,6 @@ export const authorize = (roles: string[]) => {
       return res.status(403).json({ error: 'Insufficient permissions.' });
     }
 
-    next();
+    return next();
   };
 };
