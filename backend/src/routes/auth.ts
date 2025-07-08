@@ -58,7 +58,7 @@ router.post('/register', async (req, res, next) => {
     const result = await AuthService.register(req.body);
     return res.status(201).json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -96,7 +96,7 @@ router.post('/login', async (req, res, next) => {
     const result = await AuthService.login(email, password);
     return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
