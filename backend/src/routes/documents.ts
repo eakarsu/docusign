@@ -109,9 +109,9 @@ router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequ
     }
 
     const document = await DocumentService.uploadDocument(req.file, req.user!.id, title, description);
-    res.status(201).json(document);
+    return res.status(201).json(document);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -152,9 +152,9 @@ router.post('/:id/fields', authenticate, async (req: AuthRequest, res, next) => 
     }
 
     const result = await DocumentService.addFields(req.params.id, fields, req.user!.id);
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -208,9 +208,9 @@ router.post('/:id/send', authenticate, async (req: AuthRequest, res, next) => {
       signers: result
     });
 
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -263,9 +263,9 @@ router.post('/:id/sign', authenticate, async (req: AuthRequest, res, next) => {
       signature: result
     });
 
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
