@@ -200,14 +200,14 @@ const Documents: React.FC = () => {
 
   const documentList = documents?.data || [];
 
-  const filteredDocuments = documentList.filter(doc => {
+  const filteredDocuments = documentList.filter((doc: Document) => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          doc.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'all' || doc.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
-  const sortedDocuments = [...filteredDocuments].sort((a, b) => {
+  const sortedDocuments = [...filteredDocuments].sort((a: Document, b: Document) => {
     switch (sortBy) {
       case 'name':
         return a.title.localeCompare(b.title);
