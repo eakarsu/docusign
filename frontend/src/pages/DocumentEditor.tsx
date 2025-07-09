@@ -603,18 +603,24 @@ const DocumentEditor: React.FC = () => {
         
         // Add click handler for signature fields
         if (field.type === 'SIGNATURE') {
-          fabricObject.on('mousedown', () => {
+          fabricObject.on('mousedown', (e) => {
             console.log('🖊️ Signature field clicked:', field.label);
+            e.e.preventDefault();
+            e.e.stopPropagation();
             setSelectedFieldForSigning(field);
             setSignatureDialogOpen(true);
           });
           
-          // Make signature fields more visually distinct
+          // Make signature fields more visually distinct and clickable
           fabricObject.set({
-            fill: field.signed ? '#4caf5060' : `${fieldColor}60`,
+            fill: field.signed ? '#4caf5060' : `${fieldColor}80`,
             stroke: field.signed ? '#4caf50' : fieldColor,
-            strokeWidth: field.signed ? 3 : 4,
-            strokeDashArray: field.signed ? [] : [8, 4],
+            strokeWidth: field.signed ? 3 : 5,
+            strokeDashArray: field.signed ? [] : [10, 5],
+            selectable: true,
+            evented: true,
+            hoverCursor: 'pointer',
+            moveCursor: 'pointer',
           });
           
           // Update label for signed fields
@@ -622,6 +628,12 @@ const DocumentEditor: React.FC = () => {
             labelText.set({
               text: `✓ ${field.label} - SIGNED`,
               fill: '#4caf50'
+            });
+          } else {
+            labelText.set({
+              text: `📝 CLICK TO SIGN: ${field.label}`,
+              fill: fieldColor,
+              fontWeight: 'bold'
             });
           }
         }
@@ -815,16 +827,19 @@ const DocumentEditor: React.FC = () => {
             fullWidth
             variant="outlined"
             startIcon={<AIIcon />}
-            onClick={() => detectFieldsMutation.mutate()}
+            onClick={() => {
+              console.log('🤖 AI Detect Fields button clicked');
+              detectFieldsMutation.mutate();
+            }}
             disabled={detectFieldsMutation.isPending}
             sx={{ mt: 2, mb: 2 }}
-            title="Requires OpenRouter API key to be configured"
+            title="Detect signature fields using AI"
           >
             {detectFieldsMutation.isPending ? 'Detecting...' : 'AI Detect Fields'}
           </Button>
           {detectFieldsMutation.error && (
             <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-              AI service unavailable. Please configure OpenRouter API key.
+              AI detection failed. Using fallback fields.
             </Typography>
           )}
 
@@ -860,9 +875,47 @@ const DocumentEditor: React.FC = () => {
                 addFieldsToCanvas(fields);
               }
             }}
-            sx={{ mt: 1 }}
+            sx={{ mt: 1, mb: 1 }}
           >
             DEBUG: Force Render Fields
+          </Button>
+
+          <Button
+            fullWidth
+            variant="contained"
+            color="warning"
+            onClick={() => {
+              console.log('🧪 Creating test signature fields on current page:', currentPage);
+              const testFields: DocumentField[] = [
+                {
+                  id: `test-sig-${Date.now()}-1`,
+                  type: 'SIGNATURE' as const,
+                  label: 'Test Signature 1',
+                  x: 100,
+                  y: 200,
+                  width: 250,
+                  height: 60,
+                  page: currentPage,
+                  required: true,
+                },
+                {
+                  id: `test-sig-${Date.now()}-2`,
+                  type: 'SIGNATURE' as const,
+                  label: 'Test Signature 2',
+                  x: 100,
+                  y: 300,
+                  width: 250,
+                  height: 60,
+                  page: currentPage,
+                  required: true,
+                },
+              ];
+              setFields(testFields);
+              console.log('🧪 Test fields created:', testFields);
+            }}
+            sx={{ mt: 1 }}
+          >
+            TEST: Add Signature Fields
           </Button>
 
           <Box sx={{ mt: 3 }}>
