@@ -159,7 +159,13 @@ const DocumentEditor: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log('🎯 Canvas initialization useEffect');
+    console.log('Canvas ref current:', !!canvasRef.current);
+    console.log('Canvas state:', !!canvas);
+    
     if (canvasRef.current && !canvas) {
+      console.log('🎨 Creating new fabric canvas...');
+      
       const fabricCanvas = new fabric.Canvas(canvasRef.current, {
         width: 800, // Will be updated when PDF loads
         height: 1000, // Will be updated when PDF loads
@@ -167,14 +173,21 @@ const DocumentEditor: React.FC = () => {
         backgroundColor: 'transparent',
       });
       
+      console.log('✅ Fabric canvas created:', {
+        width: fabricCanvas.getWidth(),
+        height: fabricCanvas.getHeight()
+      });
+      
       fabricCanvas.on('object:modified', handleFieldModified);
       fabricCanvas.on('object:removed', handleFieldRemoved);
       
       setCanvas(fabricCanvas);
+      console.log('✅ Canvas state updated');
     }
 
     return () => {
       if (canvas) {
+        console.log('🧹 Disposing canvas...');
         canvas.dispose();
       }
     };
@@ -187,7 +200,9 @@ const DocumentEditor: React.FC = () => {
   }, [document]);
 
   useEffect(() => {
+    console.log('useEffect triggered - canvas:', !!canvas, 'fields:', fields.length, 'currentPage:', currentPage);
     if (canvas) {
+      console.log('Canvas dimensions:', canvas.getWidth(), 'x', canvas.getHeight());
       addFieldsToCanvas(fields);
     }
   }, [canvas, fields, currentPage]);
@@ -219,25 +234,56 @@ const DocumentEditor: React.FC = () => {
   };
 
   const addFieldsToCanvas = (fieldsToAdd: DocumentField[]) => {
+    console.log('=== addFieldsToCanvas called ===');
+    console.log('Canvas ready:', !!canvas);
+    console.log('Total fields to add:', fieldsToAdd.length);
+    console.log('Current page:', currentPage);
+    
     if (!canvas) {
-      console.log('Canvas not ready');
+      console.log('❌ Canvas not ready - returning early');
       return;
     }
 
+    console.log('Canvas state:', {
+      width: canvas.getWidth(),
+      height: canvas.getHeight(),
+      objectCount: canvas.getObjects().length
+    });
+
     // Clear existing objects first
+    console.log('Clearing canvas...');
     canvas.clear();
 
     // Get current page fields
     const currentPageFields = fieldsToAdd.filter(field => field.page === currentPage);
     
-    console.log(`Rendering ${currentPageFields.length} fields for page ${currentPage}:`, currentPageFields);
+    console.log(`📋 Fields for page ${currentPage}:`, currentPageFields.map(f => ({
+      id: f.id,
+      type: f.type,
+      label: f.label,
+      x: f.x,
+      y: f.y,
+      width: f.width,
+      height: f.height,
+      page: f.page
+    })));
 
     if (currentPageFields.length === 0) {
-      console.log('No fields to render for current page');
+      console.log('⚠️ No fields to render for current page');
       return;
     }
 
     currentPageFields.forEach((field, index) => {
+      console.log(`\n--- Processing field ${index + 1}/${currentPageFields.length} ---`);
+      console.log('Field details:', {
+        id: field.id,
+        type: field.type,
+        label: field.label,
+        position: `(${field.x}, ${field.y})`,
+        size: `${field.width}x${field.height}`,
+        page: field.page
+      });
+
       let fieldColor;
       let fieldLabel;
       
@@ -271,48 +317,80 @@ const DocumentEditor: React.FC = () => {
       const canvasWidth = canvas.getWidth();
       const canvasHeight = canvas.getHeight();
       
+      console.log('Canvas bounds:', { width: canvasWidth, height: canvasHeight });
+      console.log('Original field position:', { x: field.x, y: field.y });
+      
       let x = Math.max(5, Math.min(field.x, canvasWidth - field.width - 5));
       let y = Math.max(5, Math.min(field.y, canvasHeight - field.height - 5));
 
-      console.log(`Creating field ${field.id} at (${x}, ${y}) with size ${field.width}x${field.height}`);
+      console.log('Adjusted field position:', { x, y });
+      console.log('Field color:', fieldColor);
 
-      // Create field rectangle
-      const fabricObject = new fabric.Rect({
-        left: x,
-        top: y,
-        width: field.width,
-        height: field.height,
-        fill: `${fieldColor}20`, // 20% opacity for better visibility
-        stroke: fieldColor,
-        strokeWidth: 2,
-        strokeDashArray: field.type === 'SIGNATURE' ? [5, 5] : [],
-        cornerColor: fieldColor,
-        cornerSize: 6,
-        transparentCorners: false,
-        hasRotatingPoint: false,
-      });
+      try {
+        // Create field rectangle
+        const fabricObject = new fabric.Rect({
+          left: x,
+          top: y,
+          width: field.width,
+          height: field.height,
+          fill: `${fieldColor}40`, // Increased opacity for better visibility
+          stroke: fieldColor,
+          strokeWidth: 3, // Thicker stroke
+          strokeDashArray: field.type === 'SIGNATURE' ? [5, 5] : [],
+          cornerColor: fieldColor,
+          cornerSize: 8,
+          transparentCorners: false,
+          hasRotatingPoint: false,
+        });
 
-      // Add label text
-      const labelText = new fabric.Text(`${field.label}`, {
-        left: x + 5,
-        top: y + 5,
-        fontSize: 11,
-        fill: fieldColor,
-        fontWeight: 'bold',
-        selectable: false,
-        evented: false,
-      });
+        console.log('✅ Created fabric rectangle');
 
-      // Set field data for identification
-      fabricObject.data = { fieldId: field.id, fieldType: field.type };
-      
-      // Add to canvas
-      canvas.add(fabricObject);
-      canvas.add(labelText);
+        // Add label text
+        const labelText = new fabric.Text(`${field.label}`, {
+          left: x + 5,
+          top: y + 5,
+          fontSize: 12, // Larger font
+          fill: fieldColor,
+          fontWeight: 'bold',
+          selectable: false,
+          evented: false,
+        });
+
+        console.log('✅ Created fabric text');
+
+        // Set field data for identification
+        fabricObject.data = { fieldId: field.id, fieldType: field.type };
+        
+        // Add to canvas
+        canvas.add(fabricObject);
+        console.log('✅ Added rectangle to canvas');
+        
+        canvas.add(labelText);
+        console.log('✅ Added text to canvas');
+
+      } catch (error) {
+        console.error('❌ Error creating field objects:', error);
+      }
     });
     
+    console.log('\n🎨 Rendering canvas...');
     canvas.renderAll();
-    console.log(`Canvas rendered with ${canvas.getObjects().length} objects for page ${currentPage}`);
+    
+    const finalObjectCount = canvas.getObjects().length;
+    console.log(`✅ Canvas rendered with ${finalObjectCount} objects for page ${currentPage}`);
+    console.log('Canvas objects:', canvas.getObjects().map(obj => ({
+      type: obj.type,
+      left: obj.left,
+      top: obj.top,
+      width: obj.width,
+      height: obj.height
+    })));
+    
+    // Force a repaint
+    setTimeout(() => {
+      console.log('🔄 Force repaint...');
+      canvas.renderAll();
+    }, 100);
   };
 
   const addField = (type: DocumentField['type']) => {
@@ -564,22 +642,37 @@ const DocumentEditor: React.FC = () => {
                 scale={scale}
                 loading={<Typography>Loading page...</Typography>}
                 onLoadSuccess={(page) => {
+                  console.log('📄 PDF page loaded:', {
+                    pageNumber: currentPage,
+                    width: page.width,
+                    height: page.height,
+                    scale: scale
+                  });
+                  
                   // Update canvas size to match PDF page exactly
                   if (canvas) {
                     const pdfWidth = page.width;
                     const pdfHeight = page.height;
                     
+                    console.log('🎨 Updating canvas size:', { pdfWidth, pdfHeight });
+                    
                     canvas.setWidth(pdfWidth);
                     canvas.setHeight(pdfHeight);
                     canvas.calcOffset();
-                    canvas.renderAll();
                     
                     // Update canvas element size
                     const canvasElement = canvasRef.current;
                     if (canvasElement) {
                       canvasElement.style.width = `${pdfWidth}px`;
                       canvasElement.style.height = `${pdfHeight}px`;
+                      console.log('✅ Canvas element size updated');
                     }
+                    
+                    // Re-render fields after canvas resize
+                    console.log('🔄 Re-rendering fields after canvas resize...');
+                    setTimeout(() => {
+                      addFieldsToCanvas(fields);
+                    }, 200);
                   }
                 }}
               />
