@@ -285,7 +285,7 @@ const DocumentEditor: React.FC = () => {
         addFieldsToCanvas(fallbackFields);
       }
     }, 100);
-  });
+  };
 
   useEffect(() => {
     console.log('🎯 Canvas initialization useEffect');
