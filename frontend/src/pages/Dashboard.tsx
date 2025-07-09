@@ -56,36 +56,10 @@ const Dashboard: React.FC = () => {
   const [filterMenu, setFilterMenu] = useState<null | HTMLElement>(null);
   const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
   
-  // Mock data for demo - replace with real API calls when backend is ready
-  const documents = {
-    data: [
-      {
-        id: '1',
-        title: 'Service Agreement',
-        status: 'COMPLETED',
-        createdAt: '2024-01-15T10:00:00Z',
-        priority: 'high',
-        dueDate: '2024-01-20T10:00:00Z'
-      },
-      {
-        id: '2',
-        title: 'NDA Document',
-        status: 'SENT',
-        createdAt: '2024-01-14T10:00:00Z',
-        priority: 'medium',
-        dueDate: '2024-01-18T10:00:00Z'
-      },
-      {
-        id: '3',
-        title: 'Contract Amendment',
-        status: 'DRAFT',
-        createdAt: '2024-01-13T10:00:00Z',
-        priority: 'low',
-        dueDate: '2024-01-25T10:00:00Z'
-      }
-    ]
-  };
-  const isLoading = false;
+  const { data: documents, isLoading } = useQuery({
+    queryKey: ['documents'],
+    queryFn: () => documentAPI.getDocuments(),
+  });
 
   const notifications = [
     { id: 1, message: 'Service Agreement signed by John Doe', time: '2 hours ago', type: 'success' },

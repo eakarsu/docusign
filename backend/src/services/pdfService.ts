@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fs from 'fs';
-import { S3Service } from './s3Service';
+import { LocalFileService } from './localFileService';
 import { createError } from '../middleware/errorHandler';
 
 interface SignatureField {
@@ -61,9 +61,8 @@ export class PDFService {
     signatures: SignatureField[]
   ): Promise<Buffer> {
     try {
-      // Download the original PDF
-      const response = await fetch(originalFileUrl);
-      const originalBuffer = Buffer.from(await response.arrayBuffer());
+      // Read the original PDF from local storage
+      const originalBuffer = await LocalFileService.getFileBuffer(originalFileUrl);
       
       // Load the PDF
       const pdfDoc = await PDFDocument.load(originalBuffer);
@@ -108,8 +107,7 @@ export class PDFService {
     }>
   ): Promise<Buffer> {
     try {
-      const response = await fetch(originalFileUrl);
-      const originalBuffer = Buffer.from(await response.arrayBuffer());
+      const originalBuffer = await LocalFileService.getFileBuffer(originalFileUrl);
       
       const pdfDoc = await PDFDocument.load(originalBuffer);
       const pages = pdfDoc.getPages();
