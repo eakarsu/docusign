@@ -138,32 +138,31 @@ export class AIService {
     try {
       // Use AI vision to analyze the PDF page image and detect signature locations
       const prompt = `
-        Analyze this PDF page image and identify ALL signature locations where someone needs to sign.
+        IMPORTANT: You are ONLY detecting signature locations in this document image. DO NOT modify, generate, or recreate the document content.
         
-        Look for these visual patterns:
-        - Lines with "Signature:" text followed by underscores
-        - Lines with "Initial:" text followed by underscores
-        - "Sign here" or similar indicators
+        Analyze this PDF page image and identify signature locations where someone needs to sign. Look for:
+        - Text patterns like "Signature:" followed by underscores or lines
+        - Text patterns like "Initial:" followed by underscores or lines  
+        - "Sign here" indicators
         - Witness signature areas
         - Director signature areas
-        - Any underscores that indicate signature placement
+        - Any underscores/lines that indicate signature placement
         
-        For each signature location you find, provide the exact pixel coordinates where a "CLICK TO SIGN" button should be placed.
+        For each signature location, provide ONLY the pixel coordinates where a transparent "CLICK TO SIGN" button should be overlaid on top of the existing document.
         
-        Return a JSON array with this structure:
+        Return ONLY a JSON array with this exact structure:
         [
           {
-            "x": pixel x coordinate,
-            "y": pixel y coordinate, 
-            "width": button width (suggest 200),
-            "height": button height (suggest 50),
-            "label": "descriptive name like 'Client Signature' or 'Witness Initial'",
-            "type": "SIGNATURE" | "INITIAL" | "DATE"
+            "x": pixel_x_coordinate,
+            "y": pixel_y_coordinate, 
+            "width": 200,
+            "height": 50,
+            "label": "descriptive_name_like_Client_Signature",
+            "type": "SIGNATURE"
           }
         ]
         
-        Be very precise with coordinates so the buttons appear exactly over the signature lines.
-        Return only the JSON array, no other text.
+        Return ONLY the JSON array. No explanations, no other text.
       `;
 
       console.log('🤖 Making OpenRouter API call with vision for overlay generation...');
