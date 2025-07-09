@@ -134,147 +134,199 @@ export class AIService {
 
   static async detectFields(documentText: string) {
     console.log('🤖 AI detectFields called with text length:', documentText.length);
+    console.log('🤖 Document text preview:', documentText.substring(0, 200));
     
-    // Detect signature places with better distribution - some on page 1, most on page 2
-    const comprehensiveFields = [
-      // Page 1 fields - Initial signatures and basic info (positioned near bottom of page 1)
-      { 
-        type: 'TEXT', 
-        label: 'Client Name', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 1,
-        x: 200,
-        y: 150,
-        width: 200,
-        height: 25
-      },
-      { 
-        type: 'TEXT', 
-        label: 'Provider Name', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 1,
-        x: 200,
-        y: 110,
-        width: 200,
-        height: 25
-      },
-      { 
-        type: 'SIGNATURE', 
-        label: 'Client Initial', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 1,
-        x: 200,
-        y: 70,
-        width: 150,
-        height: 40
-      },
-      { 
-        type: 'SIGNATURE', 
-        label: 'Provider Initial', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 1,
-        x: 200,
-        y: 30,
-        width: 150,
-        height: 40
-      },
-      
-      // Page 2 fields - Final signatures (positioned in signature section of page 2)
-      { 
-        type: 'SIGNATURE', 
-        label: 'Client Final Signature', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 2,
-        x: 200,
-        y: 350,
-        width: 200,
-        height: 50
-      },
-      { 
-        type: 'DATE', 
-        label: 'Client Signature Date', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 2,
-        x: 420,
-        y: 350,
-        width: 100,
-        height: 25
-      },
-      { 
-        type: 'TEXT', 
-        label: 'Client Printed Name', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 2,
-        x: 200,
-        y: 320,
-        width: 200,
-        height: 25
-      },
-      { 
-        type: 'SIGNATURE', 
-        label: 'Provider Final Signature', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 2,
-        x: 200,
-        y: 250,
-        width: 200,
-        height: 50
-      },
-      { 
-        type: 'DATE', 
-        label: 'Provider Signature Date', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 2,
-        x: 420,
-        y: 250,
-        width: 100,
-        height: 25
-      },
-      { 
-        type: 'TEXT', 
-        label: 'Provider Printed Name', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 2,
-        x: 200,
-        y: 220,
-        width: 200,
-        height: 25
-      },
-      { 
-        type: 'SIGNATURE', 
-        label: 'Witness Signature', 
-        required: false, 
-        section: 'witness',
-        suggestedPage: 2,
-        x: 200,
-        y: 150,
-        width: 200,
-        height: 50
-      },
-      { 
-        type: 'TEXT', 
-        label: 'Witness Name', 
-        required: false, 
-        section: 'witness',
-        suggestedPage: 2,
-        x: 200,
-        y: 120,
-        width: 200,
-        height: 25
-      },
-    ];
+    // Analyze document content to determine field placement
+    const hasInitialSignatures = documentText.includes('INITIAL SIGNATURES') || documentText.includes('Client Initial') || documentText.includes('Provider Initial');
+    const hasFinalSignatures = documentText.includes('FINAL SIGNATURES') || documentText.includes('Full Signature') || documentText.includes('CLIENT:') || documentText.includes('SERVICE PROVIDER:');
+    const hasWitnessSection = documentText.includes('WITNESS') || documentText.includes('Witness');
+    
+    console.log('🤖 Document analysis:', {
+      hasInitialSignatures,
+      hasFinalSignatures,
+      hasWitnessSection
+    });
+    
+    const comprehensiveFields = [];
+    
+    // Page 1 fields - Based on document content analysis
+    if (hasInitialSignatures) {
+      comprehensiveFields.push(
+        { 
+          type: 'TEXT', 
+          label: 'Client Name', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 1,
+          x: 200,
+          y: 200,
+          width: 200,
+          height: 25
+        },
+        { 
+          type: 'TEXT', 
+          label: 'Provider Name', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 1,
+          x: 200,
+          y: 160,
+          width: 200,
+          height: 25
+        },
+        { 
+          type: 'SIGNATURE', 
+          label: 'Client Initial', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 1,
+          x: 200,
+          y: 120,
+          width: 150,
+          height: 40
+        },
+        { 
+          type: 'DATE', 
+          label: 'Client Initial Date', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 1,
+          x: 400,
+          y: 120,
+          width: 100,
+          height: 25
+        },
+        { 
+          type: 'SIGNATURE', 
+          label: 'Provider Initial', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 1,
+          x: 200,
+          y: 80,
+          width: 150,
+          height: 40
+        },
+        { 
+          type: 'DATE', 
+          label: 'Provider Initial Date', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 1,
+          x: 400,
+          y: 80,
+          width: 100,
+          height: 25
+        }
+      );
+    }
+    
+    // Page 2 fields - Based on document content analysis
+    if (hasFinalSignatures) {
+      comprehensiveFields.push(
+        { 
+          type: 'SIGNATURE', 
+          label: 'Client Final Signature', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 2,
+          x: 200,
+          y: 350,
+          width: 200,
+          height: 50
+        },
+        { 
+          type: 'DATE', 
+          label: 'Client Signature Date', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 2,
+          x: 420,
+          y: 350,
+          width: 100,
+          height: 25
+        },
+        { 
+          type: 'TEXT', 
+          label: 'Client Printed Name', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 2,
+          x: 200,
+          y: 320,
+          width: 200,
+          height: 25
+        },
+        { 
+          type: 'SIGNATURE', 
+          label: 'Provider Final Signature', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 2,
+          x: 200,
+          y: 250,
+          width: 200,
+          height: 50
+        },
+        { 
+          type: 'DATE', 
+          label: 'Provider Signature Date', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 2,
+          x: 420,
+          y: 250,
+          width: 100,
+          height: 25
+        },
+        { 
+          type: 'TEXT', 
+          label: 'Provider Printed Name', 
+          required: true, 
+          section: 'individual',
+          suggestedPage: 2,
+          x: 200,
+          y: 220,
+          width: 200,
+          height: 25
+        }
+      );
+    }
+    
+    // Witness fields if detected
+    if (hasWitnessSection) {
+      comprehensiveFields.push(
+        { 
+          type: 'SIGNATURE', 
+          label: 'Witness Signature', 
+          required: false, 
+          section: 'witness',
+          suggestedPage: 2,
+          x: 200,
+          y: 150,
+          width: 200,
+          height: 50
+        },
+        { 
+          type: 'TEXT', 
+          label: 'Witness Name', 
+          required: false, 
+          section: 'witness',
+          suggestedPage: 2,
+          x: 200,
+          y: 120,
+          width: 200,
+          height: 25
+        }
+      );
+    }
 
-    console.log('🤖 Returning comprehensive fields with realistic positioning:', comprehensiveFields);
+    console.log('🤖 Returning fields based on document content analysis:', comprehensiveFields);
+    console.log('🤖 Fields by page:', comprehensiveFields.reduce((acc, field) => {
+      acc[field.suggestedPage] = (acc[field.suggestedPage] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>));
+    
     return comprehensiveFields;
   }
 }

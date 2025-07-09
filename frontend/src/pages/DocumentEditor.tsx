@@ -177,19 +177,16 @@ const DocumentEditor: React.FC = () => {
         // Don't auto-navigate, let user see fields are created
         console.log('📄 Default fields created for page 2');
         
-        // Navigate to page 2 where the default fields are located
-        if (currentPage === 1) {
-          console.log('🔄 Auto-navigating to page 2 where default fields are located...');
-          setCurrentPage(2);
-        }
-      
-        // Re-render fields after a short delay
+        // Don't auto-navigate - stay on current page
+        console.log('📄 Default fields created for page 2');
+        
+        // Re-render fields for current page
         setTimeout(() => {
           console.log('🔄 Re-rendering default fields...');
           if (canvas) {
             addFieldsToCanvas(defaultFields);
           }
-        }, 200);
+        }, 100);
         return;
       }
       
@@ -256,24 +253,21 @@ const DocumentEditor: React.FC = () => {
         }, {} as Record<number, number>)
       );
       
-      // Navigate to page 2 where most signature fields are located
-      const fieldsOnPage2 = aiFields.filter(f => f.page === 2).length;
-      const fieldsOnPage1 = aiFields.filter(f => f.page === 1).length;
+      // Don't auto-navigate - let user stay on current page and navigate manually
+      console.log('📄 Fields distributed across pages:', 
+        aiFields.reduce((acc, field) => {
+          acc[field.page] = (acc[field.page] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>)
+      );
       
-      console.log(`📄 Fields distribution - Page 1: ${fieldsOnPage1}, Page 2: ${fieldsOnPage2}`);
-      
-      if (fieldsOnPage2 > fieldsOnPage1 && currentPage === 1) {
-        console.log('🔄 Auto-navigating to page 2 where most fields are located...');
-        setCurrentPage(2);
-      }
-      
-      // Re-render fields after a short delay
+      // Re-render fields for current page
       setTimeout(() => {
         console.log('🔄 Re-rendering fields for current page...');
         if (canvas) {
           addFieldsToCanvas(aiFields);
         }
-      }, 200);
+      }, 100);
     },
     onError: (error) => {
       console.error('❌ AI field detection failed:', error);
@@ -308,19 +302,16 @@ const DocumentEditor: React.FC = () => {
       setFields(fallbackFields);
       console.log('📄 Fallback fields created for page 2');
       
-      // Navigate to page 2 where the fallback fields are located
-      if (currentPage === 1) {
-        console.log('🔄 Auto-navigating to page 2 where fallback fields are located...');
-        setCurrentPage(2);
-      }
+      // Don't auto-navigate - stay on current page
+      console.log('📄 Fallback fields created for page 2');
       
-      // Re-render fields after a short delay
+      // Re-render fields for current page
       setTimeout(() => {
         console.log('🔄 Re-rendering fallback fields...');
         if (canvas) {
           addFieldsToCanvas(fallbackFields);
         }
-      }, 200);
+      }, 100);
     },
   });
 
@@ -391,13 +382,8 @@ const DocumentEditor: React.FC = () => {
     if (document?.data?.fields && document.data.fields.length > 0) {
       console.log('📄 Loading existing fields from document:', document.data.fields);
       setFields(document.data.fields);
-    } else if (document?.data && !detectFieldsMutation.isPending && fields.length === 0) {
-      console.log('📄 No existing fields found, triggering AI detection...');
-      // Auto-trigger AI field detection when document loads and has no fields
-      setTimeout(() => {
-        detectFieldsMutation.mutate();
-      }, 1000); // Small delay to ensure PDF is loaded
     }
+    // Remove auto-trigger of AI detection - let user manually trigger it
   }, [document]);
 
   useEffect(() => {
