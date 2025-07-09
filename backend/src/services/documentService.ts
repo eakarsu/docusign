@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { S3Service } from './s3Service';
+import { LocalFileService } from './localFileService';
 import { createError } from '../middleware/errorHandler';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -13,7 +13,7 @@ export class DocumentService {
     description?: string
   ) {
     const fileKey = `documents/${uuidv4()}-${file.originalname}`;
-    const fileUrl = await S3Service.uploadFile(file, fileKey);
+    const fileUrl = await LocalFileService.uploadFile(file, fileKey);
 
     const document = await prisma.document.create({
       data: {
