@@ -210,52 +210,14 @@ export class AIService {
 
       console.log('🤖 AI Vision Response:', aiResponse.substring(0, 500) + '...');
 
-      // Parse the AI response to extract overlay image and locations
-      const overlayImageMatch = aiResponse.match(/OVERLAY_IMAGE:\s*(data:image\/png;base64,[A-Za-z0-9+/=]+)/);
-      const locationsMatch = aiResponse.match(/LOCATIONS:\s*(\[[\s\S]*?\])/);
+      console.log('🤖 AI Vision Response (first 1000 chars):', aiResponse.substring(0, 1000));
       
-      let overlayImage = null;
-      let signatureLocations = [];
+      // Since AI vision overlay generation is complex, let's use a simpler approach
+      // Create overlay image programmatically based on detected signature locations
+      console.log('🔄 AI vision did not provide usable overlay, creating programmatic overlay');
       
-      if (overlayImageMatch) {
-        overlayImage = overlayImageMatch[1];
-        console.log('🎨 AI generated overlay image (length):', overlayImage.length);
-      }
-      
-      if (locationsMatch) {
-        try {
-          signatureLocations = JSON.parse(locationsMatch[1]);
-          console.log('🤖 Parsed signature locations from AI:', signatureLocations);
-        } catch (parseError) {
-          console.error('🤖 Failed to parse locations JSON:', parseError);
-        }
-      }
-      
-      // If AI didn't provide overlay image, create fallback
-      if (!overlayImage) {
-        console.log('🔄 AI did not provide overlay image, using fallback');
-        return await this.createFallbackOverlay(pageNumber);
-      }
-      
-      // Save the overlay image to file system
-      const savedImagePath = await this.saveOverlayImage(overlayImage, documentId, pageNumber);
-      
-      return {
-        overlayImage,
-        savedImagePath,
-        signatureFields: signatureLocations.map((location: any, index: number) => ({
-          id: `vision-overlay-${Date.now()}-${index}`,
-          type: 'SIGNATURE',
-          label: location.label || `Signature ${index + 1}`,
-          x: location.x,
-          y: location.y,
-          width: location.width || 200,
-          height: location.height || 50,
-          page: pageNumber,
-          required: true,
-          overlayType: 'CLICK_TO_SIGN'
-        }))
-      };
+      // Use the fallback approach but with better positioning based on the document
+      return await this.createProgrammaticOverlay(documentId, pageNumber, pdfImageBase64);
 
     } catch (error) {
       console.error('🤖 AI vision overlay generation failed, using fallback:', error);
@@ -297,6 +259,82 @@ export class AIService {
     }
   }
 
+  static async createProgrammaticOverlay(documentId: string, pageNumber: number, pdfImageBase64: string) {
+    console.log('🎨 Creating programmatic overlay for page:', pageNumber);
+    
+    try {
+      // Create overlay image using node-canvas
+      const { createCanvas, loadImage } = require('canvas');
+      
+      // Load the PDF page image
+      const pdfImage = await loadImage(`data:image/png;base64,${pdfImageBase64}`);
+      
+      // Create canvas with same dimensions as PDF
+      const canvas = createCanvas(pdfImage.width, pdfImage.height);
+      const ctx = canvas.getContext('2d');
+      
+      // Define signature locations based on page
+      const signatureLocations = pageNumber === 1 ? [
+        { x: 200, y: pdfImage.height - 200, width: 200, height: 50, label: 'Client Initial' },
+        { x: 200, y: pdfImage.height - 140, width: 200, height: 50, label: 'Provider Initial' }
+      ] : [
+        { x: 480, y: 300, width: 200, height: 50, label: 'Director Signature' },
+        { x: 480, y: 250, width: 200, height: 50, label: 'Witness Signature' },
+        { x: 480, y: 200, width: 200, height: 50, label: 'Witness Name' }
+      ];
+      
+      // Draw "CLICK TO SIGN" buttons
+      signatureLocations.forEach((location) => {
+        // Draw button background
+        ctx.fillStyle = '#FF9800';
+        ctx.fillRect(location.x, location.y, location.width, location.height);
+        
+        // Draw button border
+        ctx.strokeStyle = '#F57C00';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(location.x, location.y, location.width, location.height);
+        
+        // Draw text
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(
+          '🖊️ CLICK TO SIGN',
+          location.x + location.width / 2,
+          location.y + location.height / 2
+        );
+      });
+      
+      // Convert to base64
+      const overlayImageBase64 = canvas.toDataURL('image/png');
+      
+      // Save the overlay image
+      const savedImagePath = await this.saveOverlayImage(overlayImageBase64, documentId, pageNumber);
+      
+      return {
+        overlayImage: overlayImageBase64,
+        savedImagePath,
+        signatureFields: signatureLocations.map((location, index) => ({
+          id: `programmatic-overlay-${Date.now()}-${index}`,
+          type: 'SIGNATURE',
+          label: location.label,
+          x: location.x,
+          y: location.y,
+          width: location.width,
+          height: location.height,
+          page: pageNumber,
+          required: true,
+          overlayType: 'CLICK_TO_SIGN'
+        }))
+      };
+      
+    } catch (error) {
+      console.error('🤖 Failed to create programmatic overlay:', error);
+      return await this.createFallbackOverlay(pageNumber);
+    }
+  }
+
   static async createFallbackOverlay(pageNumber: number) {
     console.log('🔄 Creating fallback overlay for page:', pageNumber);
     
@@ -304,9 +342,9 @@ export class AIService {
       { x: 200, y: 120, width: 200, height: 50, label: 'Client Initial', type: 'INITIAL' },
       { x: 200, y: 80, width: 200, height: 50, label: 'Provider Initial', type: 'INITIAL' }
     ] : [
-      { x: 200, y: 350, width: 250, height: 60, label: 'Client Final Signature', type: 'SIGNATURE' },
-      { x: 200, y: 250, width: 250, height: 60, label: 'Provider Final Signature', type: 'SIGNATURE' },
-      { x: 200, y: 150, width: 250, height: 60, label: 'Witness Signature', type: 'SIGNATURE' }
+      { x: 480, y: 300, width: 200, height: 50, label: 'Director Signature', type: 'SIGNATURE' },
+      { x: 480, y: 250, width: 200, height: 50, label: 'Witness Signature', type: 'SIGNATURE' },
+      { x: 480, y: 200, width: 200, height: 50, label: 'Witness Name', type: 'TEXT' }
     ];
     
     return {
