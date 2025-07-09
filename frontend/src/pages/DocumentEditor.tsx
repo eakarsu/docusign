@@ -40,13 +40,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { fabric } from 'fabric';
 import { documentAPI, aiAPI } from '../services/api';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-
-// Import react-pdf CSS to fix annotation warnings
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 interface DocumentField {
   id?: string;
