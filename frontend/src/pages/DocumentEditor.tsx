@@ -44,6 +44,10 @@ import { documentAPI, aiAPI } from '../services/api';
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
+// Import react-pdf CSS to fix annotation warnings
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
 interface DocumentField {
   id?: string;
   type: 'SIGNATURE' | 'INITIAL' | 'DATE' | 'TEXT' | 'CHECKBOX';
@@ -283,35 +287,46 @@ const DocumentEditor: React.FC = () => {
     console.log('Canvas ref current:', !!canvasRef.current);
     console.log('Canvas state:', !!canvas);
     
-    if (canvasRef.current && !canvas) {
-      console.log('🎨 Creating new fabric canvas...');
-      
-      const fabricCanvas = new fabric.Canvas(canvasRef.current, {
-        width: 800, // Will be updated when PDF loads
-        height: 1000, // Will be updated when PDF loads
-        selection: true,
-        backgroundColor: 'transparent',
-      });
-      
-      console.log('✅ Fabric canvas created:', {
-        width: fabricCanvas.getWidth(),
-        height: fabricCanvas.getHeight()
-      });
-      
-      fabricCanvas.on('object:modified', handleFieldModified);
-      fabricCanvas.on('object:removed', handleFieldRemoved);
-      
-      setCanvas(fabricCanvas);
-      console.log('✅ Canvas state updated');
-    }
+    // Add a small delay to ensure the canvas element is fully rendered
+    const initCanvas = () => {
+      if (canvasRef.current && !canvas) {
+        console.log('🎨 Creating new fabric canvas...');
+        
+        try {
+          const fabricCanvas = new fabric.Canvas(canvasRef.current, {
+            width: 800, // Will be updated when PDF loads
+            height: 1000, // Will be updated when PDF loads
+            selection: true,
+            backgroundColor: 'transparent',
+          });
+          
+          console.log('✅ Fabric canvas created:', {
+            width: fabricCanvas.getWidth(),
+            height: fabricCanvas.getHeight()
+          });
+          
+          fabricCanvas.on('object:modified', handleFieldModified);
+          fabricCanvas.on('object:removed', handleFieldRemoved);
+          
+          setCanvas(fabricCanvas);
+          console.log('✅ Canvas state updated');
+        } catch (error) {
+          console.error('❌ Failed to create fabric canvas:', error);
+        }
+      }
+    };
+
+    // Use setTimeout to ensure DOM is ready
+    const timeoutId = setTimeout(initCanvas, 100);
 
     return () => {
+      clearTimeout(timeoutId);
       if (canvas) {
         console.log('🧹 Disposing canvas...');
         canvas.dispose();
       }
     };
-  }, []);
+  }, [canvasRef.current]);
 
   useEffect(() => {
     if (document?.data?.fields) {
@@ -817,6 +832,8 @@ const DocumentEditor: React.FC = () => {
             {/* Canvas overlay for field placement */}
             <canvas
               ref={canvasRef}
+              width={800}
+              height={1000}
               style={{
                 position: 'absolute',
                 top: 0,
@@ -824,6 +841,7 @@ const DocumentEditor: React.FC = () => {
                 pointerEvents: 'auto',
                 zIndex: 10,
                 cursor: selectedTool ? 'crosshair' : 'default',
+                border: '1px solid transparent', // Help with debugging
               }}
             />
           </div>
