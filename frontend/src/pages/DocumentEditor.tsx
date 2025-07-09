@@ -175,7 +175,16 @@ const DocumentEditor: React.FC = () => {
         setFields(defaultFields);
         
         // Navigate to page 2 to show the fields
+        console.log('📄 Navigating to page 2 for default fields');
         setCurrentPage(2);
+        
+        // Force canvas to re-render after page change
+        setTimeout(() => {
+          console.log('🔄 Re-rendering default fields after page navigation...');
+          if (canvas) {
+            addFieldsToCanvas(defaultFields);
+          }
+        }, 300);
         return;
       }
       
@@ -243,7 +252,17 @@ const DocumentEditor: React.FC = () => {
       );
       
       console.log('📄 Navigating to page with most fields:', targetPage);
-      setCurrentPage(parseInt(targetPage));
+      const newPage = parseInt(targetPage);
+      console.log('📄 Setting current page to:', newPage);
+      setCurrentPage(newPage);
+      
+      // Force canvas to re-render after page change
+      setTimeout(() => {
+        console.log('🔄 Re-rendering fields after page navigation...');
+        if (canvas) {
+          addFieldsToCanvas(aiFields);
+        }
+      }, 300);
     },
     onError: (error) => {
       console.error('❌ AI field detection failed:', error);
@@ -276,7 +295,16 @@ const DocumentEditor: React.FC = () => {
       
       console.log('🔄 Using fallback fields:', fallbackFields);
       setFields(fallbackFields);
+      console.log('📄 Navigating to page 2 for fallback fields');
       setCurrentPage(2);
+      
+      // Force canvas to re-render after page change
+      setTimeout(() => {
+        console.log('🔄 Re-rendering fallback fields after page navigation...');
+        if (canvas) {
+          addFieldsToCanvas(fallbackFields);
+        }
+      }, 300);
     },
   });
 
@@ -335,6 +363,7 @@ const DocumentEditor: React.FC = () => {
   useEffect(() => {
     console.log('useEffect triggered - canvas:', !!canvas, 'fields:', fields.length, 'currentPage:', currentPage);
     console.log('All fields:', fields);
+    console.log('Fields for current page:', fields.filter(f => f.page === currentPage));
     if (canvas) {
       console.log('Canvas dimensions:', canvas.getWidth(), 'x', canvas.getHeight());
       addFieldsToCanvas(fields);
