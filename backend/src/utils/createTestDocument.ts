@@ -61,9 +61,17 @@ export async function createTestDocument() {
   // PAGE 2
   const page2 = pdfDoc.addPage([612, 792]);
 
+  // Add page header
+  page2.drawText('ADDITIONAL TERMS AND CONDITIONS - PAGE 2', {
+    x: 50,
+    y: 750,
+    size: 16,
+    font: boldFont,
+    color: rgb(0, 0, 0),
+  });
+
   // Add content for page 2
   const page2Content = [
-    'ADDITIONAL TERMS AND CONDITIONS',
     '',
     '4. Liability and Indemnification:',
     '   - Service provider liability is limited to the contract value',
@@ -77,20 +85,31 @@ export async function createTestDocument() {
     '   - All work product belongs to the client upon full payment',
     '   - Provider retains rights to general methodologies and know-how',
     '',
+    '7. Governing Law:',
+    '   - This agreement shall be governed by applicable state laws',
+    '   - Any disputes shall be resolved through binding arbitration',
+    '',
     'FINAL SIGNATURES (Page 2):',
     '',
-    'By signing below, both parties agree to all terms and conditions.',
+    'By signing below, both parties agree to all terms and conditions',
+    'outlined in this Service Agreement.',
     '',
     'CLIENT:',
-    'Signature: _________________________ Date: _________',
+    'Full Signature: _________________________ Date: _________',
     'Print Name: _________________________',
+    'Title: _________________________',
     '',
     'SERVICE PROVIDER:',
+    'Full Signature: _________________________ Date: _________',
+    'Print Name: _________________________',
+    'Title: _________________________',
+    '',
+    'WITNESS (if required):',
     'Signature: _________________________ Date: _________',
     'Print Name: _________________________',
   ];
 
-  yPosition = 750;
+  yPosition = 700;
   for (const line of page2Content) {
     page2.drawText(line, {
       x: 50,

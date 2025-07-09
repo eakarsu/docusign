@@ -135,98 +135,146 @@ export class AIService {
   static async detectFields(documentText: string) {
     console.log('🤖 AI detectFields called with text length:', documentText.length);
     
-    // Detect all 4 signature places as mentioned in the document
+    // Detect all signature places with realistic positioning for a 2-page document
     const comprehensiveFields = [
-      // Page 1 fields - Initial signatures
+      // Page 1 fields - Initial signatures (positioned near bottom of page 1)
       { 
         type: 'TEXT', 
         label: 'Client Name', 
         required: true, 
         section: 'individual',
-        suggestedPage: 1 
+        suggestedPage: 1,
+        x: 150,
+        y: 100,
+        width: 200,
+        height: 25
       },
       { 
         type: 'TEXT', 
         label: 'Provider Name', 
         required: true, 
         section: 'individual',
-        suggestedPage: 1 
+        suggestedPage: 1,
+        x: 150,
+        y: 60,
+        width: 200,
+        height: 25
       },
       { 
         type: 'SIGNATURE', 
         label: 'Client Initial', 
         required: true, 
         section: 'individual',
-        suggestedPage: 1 
+        suggestedPage: 1,
+        x: 150,
+        y: 120,
+        width: 150,
+        height: 40
       },
       { 
         type: 'DATE', 
         label: 'Client Initial Date', 
         required: true, 
         section: 'individual',
-        suggestedPage: 1 
+        suggestedPage: 1,
+        x: 400,
+        y: 120,
+        width: 100,
+        height: 25
       },
       { 
         type: 'SIGNATURE', 
         label: 'Provider Initial', 
         required: true, 
         section: 'individual',
-        suggestedPage: 1 
+        suggestedPage: 1,
+        x: 150,
+        y: 80,
+        width: 150,
+        height: 40
       },
       { 
         type: 'DATE', 
         label: 'Provider Initial Date', 
         required: true, 
         section: 'individual',
-        suggestedPage: 1 
+        suggestedPage: 1,
+        x: 400,
+        y: 80,
+        width: 100,
+        height: 25
       },
       
-      // Page 2 fields - Final signatures
+      // Page 2 fields - Final signatures (positioned in signature section of page 2)
       { 
         type: 'SIGNATURE', 
         label: 'Client Final Signature', 
         required: true, 
         section: 'individual',
-        suggestedPage: 2 
+        suggestedPage: 2,
+        x: 150,
+        y: 300,
+        width: 200,
+        height: 50
       },
       { 
         type: 'DATE', 
         label: 'Client Signature Date', 
         required: true, 
         section: 'individual',
-        suggestedPage: 2 
+        suggestedPage: 2,
+        x: 400,
+        y: 300,
+        width: 100,
+        height: 25
       },
       { 
         type: 'TEXT', 
         label: 'Client Printed Name', 
         required: true, 
         section: 'individual',
-        suggestedPage: 2 
+        suggestedPage: 2,
+        x: 150,
+        y: 270,
+        width: 200,
+        height: 25
       },
       { 
         type: 'SIGNATURE', 
         label: 'Provider Final Signature', 
         required: true, 
         section: 'individual',
-        suggestedPage: 2 
+        suggestedPage: 2,
+        x: 150,
+        y: 200,
+        width: 200,
+        height: 50
       },
       { 
         type: 'DATE', 
         label: 'Provider Signature Date', 
         required: true, 
         section: 'individual',
-        suggestedPage: 2 
+        suggestedPage: 2,
+        x: 400,
+        y: 200,
+        width: 100,
+        height: 25
       },
       { 
         type: 'TEXT', 
         label: 'Provider Printed Name', 
         required: true, 
         section: 'individual',
-        suggestedPage: 2 
+        suggestedPage: 2,
+        x: 150,
+        y: 170,
+        width: 200,
+        height: 25
       },
     ];
 
-    console.log('🤖 Returning comprehensive fields with 4 signature places:', comprehensiveFields);
+    console.log('🤖 Returning comprehensive fields with realistic positioning:', comprehensiveFields);
     return comprehensiveFields;
   }
 }

@@ -365,8 +365,15 @@ const DocumentEditor: React.FC = () => {
   }, [canvasRef.current]);
 
   useEffect(() => {
-    if (document?.data?.fields) {
+    if (document?.data?.fields && document.data.fields.length > 0) {
+      console.log('📄 Loading existing fields from document:', document.data.fields);
       setFields(document.data.fields);
+    } else if (document?.data && !detectFieldsMutation.isPending && fields.length === 0) {
+      console.log('📄 No existing fields found, triggering AI detection...');
+      // Auto-trigger AI field detection when document loads and has no fields
+      setTimeout(() => {
+        detectFieldsMutation.mutate();
+      }, 1000); // Small delay to ensure PDF is loaded
     }
   }, [document]);
 
