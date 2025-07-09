@@ -166,7 +166,7 @@ const DocumentEditor: React.FC = () => {
       setFields(prevFields => [...prevFields, ...aiFields]);
       
       // If we're on the current page, render the fields immediately
-      const currentPageAIFields = aiFields.filter(f => f.page === currentPage);
+      const currentPageAIFields = aiFields.filter((f: DocumentField) => f.page === currentPage);
       if (currentPageAIFields.length > 0) {
         addFieldsToCanvas([...fields, ...aiFields]);
       }
