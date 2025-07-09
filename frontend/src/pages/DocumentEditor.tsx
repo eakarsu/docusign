@@ -35,6 +35,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from '@mui/icons-material';
+import SignatureCapture from '../components/SignatureCapture';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -57,6 +58,8 @@ interface DocumentField {
   page: number;
   required: boolean;
   signerEmail?: string;
+  signatureData?: string;
+  signed?: boolean;
 }
 
 const DocumentEditor: React.FC = () => {
@@ -72,6 +75,8 @@ const DocumentEditor: React.FC = () => {
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+  const [selectedFieldForSigning, setSelectedFieldForSigning] = useState<DocumentField | null>(null);
   const [signers, setSigners] = useState<Array<{ email: string; name: string }>>([
     { email: '', name: '' }
   ]);
@@ -596,6 +601,31 @@ const DocumentEditor: React.FC = () => {
         // Set field data for identification
         fabricObject.data = { fieldId: field.id, fieldType: field.type };
         
+        // Add click handler for signature fields
+        if (field.type === 'SIGNATURE') {
+          fabricObject.on('mousedown', () => {
+            console.log('🖊️ Signature field clicked:', field.label);
+            setSelectedFieldForSigning(field);
+            setSignatureDialogOpen(true);
+          });
+          
+          // Make signature fields more visually distinct
+          fabricObject.set({
+            fill: field.signed ? '#4caf5060' : `${fieldColor}60`,
+            stroke: field.signed ? '#4caf50' : fieldColor,
+            strokeWidth: field.signed ? 3 : 4,
+            strokeDashArray: field.signed ? [] : [8, 4],
+          });
+          
+          // Update label for signed fields
+          if (field.signed) {
+            labelText.set({
+              text: `✓ ${field.label} - SIGNED`,
+              fill: '#4caf50'
+            });
+          }
+        }
+        
         // Add to canvas
         canvas.add(fabricObject);
         console.log('✅ Added rectangle to canvas');
@@ -688,6 +718,33 @@ const DocumentEditor: React.FC = () => {
 
   const removeSigner = (index: number) => {
     setSigners(signers.filter((_, i) => i !== index));
+  };
+
+  const handleSignatureCapture = (signatureData: string) => {
+    if (selectedFieldForSigning) {
+      console.log('✍️ Signature captured for field:', selectedFieldForSigning.label);
+      
+      // Update the field to show it's been signed
+      setFields(prev => prev.map(field => 
+        field.id === selectedFieldForSigning.id 
+          ? { ...field, signatureData, signed: true }
+          : field
+      ));
+      
+      // Re-render the canvas to show the updated field
+      setTimeout(() => {
+        if (canvas) {
+          addFieldsToCanvas(fields.map(field => 
+            field.id === selectedFieldForSigning.id 
+              ? { ...field, signatureData, signed: true }
+              : field
+          ));
+        }
+      }, 100);
+    }
+    
+    setSignatureDialogOpen(false);
+    setSelectedFieldForSigning(null);
   };
 
   const fieldTools = [
@@ -1018,6 +1075,17 @@ const DocumentEditor: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Signature Capture Dialog */}
+      <SignatureCapture
+        open={signatureDialogOpen}
+        onClose={() => {
+          setSignatureDialogOpen(false);
+          setSelectedFieldForSigning(null);
+        }}
+        onSave={handleSignatureCapture}
+        title={selectedFieldForSigning ? `Sign: ${selectedFieldForSigning.label}` : 'Add Signature'}
+      />
     </Box>
   );
 };
