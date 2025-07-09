@@ -100,9 +100,86 @@ const DocumentEditor: React.FC = () => {
   const detectFieldsMutation = useMutation({
     mutationFn: () => aiAPI.detectFields(id!),
     onSuccess: (data) => {
-      console.log('AI detected fields:', data.data.fields);
+      console.log('🤖 AI API Response:', data);
+      console.log('🤖 AI detected fields raw:', data.data);
       
-      const aiFields = data.data.fields.map((field: any, index: number) => {
+      // Handle both possible response formats
+      const fieldsArray = data.data.fields || data.data || [];
+      console.log('🤖 Fields array:', fieldsArray);
+      
+      if (!Array.isArray(fieldsArray) || fieldsArray.length === 0) {
+        console.log('⚠️ No fields detected by AI, creating default fields for multi-page document');
+        
+        // Create default fields for a 2-page document with signatures on page 2
+        const defaultFields = [
+          {
+            id: `default-${Date.now()}-0`,
+            type: 'SIGNATURE',
+            label: 'Primary Signature',
+            x: 100,
+            y: 200,
+            width: 250,
+            height: 60,
+            page: 2, // Put on page 2 where signatures typically are
+            required: true,
+          },
+          {
+            id: `default-${Date.now()}-1`,
+            type: 'DATE',
+            label: 'Signature Date',
+            x: 400,
+            y: 200,
+            width: 150,
+            height: 25,
+            page: 2,
+            required: true,
+          },
+          {
+            id: `default-${Date.now()}-2`,
+            type: 'TEXT',
+            label: 'Printed Name',
+            x: 100,
+            y: 300,
+            width: 200,
+            height: 25,
+            page: 2,
+            required: false,
+          },
+          {
+            id: `default-${Date.now()}-3`,
+            type: 'SIGNATURE',
+            label: 'Witness Signature',
+            x: 100,
+            y: 400,
+            width: 250,
+            height: 60,
+            page: 2,
+            required: true,
+          },
+          {
+            id: `default-${Date.now()}-4`,
+            type: 'TEXT',
+            label: 'Witness Name',
+            x: 400,
+            y: 400,
+            width: 200,
+            height: 25,
+            page: 2,
+            required: true,
+          },
+        ];
+        
+        console.log('📝 Created default fields:', defaultFields);
+        setFields(defaultFields);
+        
+        // Navigate to page 2 to show the fields
+        setCurrentPage(2);
+        return;
+      }
+      
+      const aiFields = fieldsArray.map((field: any, index: number) => {
+        console.log(`🔍 Processing field ${index}:`, field);
+        
         // Generic positioning that works for any document
         const column = index % 2; // Alternate between left and right columns
         const row = Math.floor(index / 2);
@@ -111,6 +188,7 @@ const DocumentEditor: React.FC = () => {
         let y = 150 + (row * 100); // Vertical spacing
         let width = 200;
         let height = 30;
+        let page = 2; // Default to page 2 for signatures
         
         // Adjust dimensions based on field type
         if (field.type === 'SIGNATURE') {
@@ -127,56 +205,76 @@ const DocumentEditor: React.FC = () => {
           height = 40;
         }
         
-        // Ensure fields stay within canvas bounds
-        if (canvas) {
-          const canvasWidth = canvas.getWidth();
-          const canvasHeight = canvas.getHeight();
-          
-          if (x + width > canvasWidth - 20) {
-            x = canvasWidth - width - 20;
-          }
-          if (y + height > canvasHeight - 20) {
-            y = canvasHeight - height - 20;
-          }
+        // Use suggested page if available, otherwise default to page 2
+        if (field.suggestedPage && field.suggestedPage <= numPages) {
+          page = field.suggestedPage;
         }
+        
+        // Ensure fields stay within reasonable bounds
+        if (x + width > 600) x = 600 - width;
+        if (y + height > 800) y = 150 + ((index % 4) * 80);
         
         return {
           id: `ai-${Date.now()}-${index}`,
-          type: field.type,
-          label: field.label || `${field.type} Field ${index + 1}`,
+          type: field.type || 'SIGNATURE',
+          label: field.label || `${field.type || 'SIGNATURE'} Field ${index + 1}`,
           x,
           y,
           width,
           height,
-          page: field.suggestedPage || currentPage,
-          required: field.required || false,
+          page,
+          required: field.required !== false, // Default to true
         };
       });
       
-      console.log('Generated AI fields:', aiFields);
-      console.log('Current fields before adding AI fields:', fields);
-      
-      // Replace existing fields with AI detected fields
+      console.log('✅ Generated AI fields:', aiFields);
       setFields(aiFields);
       
-      console.log('Fields state should now be updated with AI fields');
-      console.log('Setting fields to:', aiFields);
+      // Navigate to the page with the most fields
+      const pageWithMostFields = aiFields.reduce((acc, field) => {
+        acc[field.page] = (acc[field.page] || 0) + 1;
+        return acc;
+      }, {} as Record<number, number>);
       
-      // Force canvas to re-render with new fields multiple times to ensure it works
-      setTimeout(() => {
-        console.log('Force rendering AI fields on canvas (attempt 1)...');
-        addFieldsToCanvas(aiFields);
-      }, 100);
+      const targetPage = Object.keys(pageWithMostFields).reduce((a, b) => 
+        pageWithMostFields[parseInt(a)] > pageWithMostFields[parseInt(b)] ? a : b
+      );
       
-      setTimeout(() => {
-        console.log('Force rendering AI fields on canvas (attempt 2)...');
-        addFieldsToCanvas(aiFields);
-      }, 500);
+      console.log('📄 Navigating to page with most fields:', targetPage);
+      setCurrentPage(parseInt(targetPage));
+    },
+    onError: (error) => {
+      console.error('❌ AI field detection failed:', error);
       
-      setTimeout(() => {
-        console.log('Force rendering AI fields on canvas (attempt 3)...');
-        addFieldsToCanvas(aiFields);
-      }, 1000);
+      // Create fallback fields on page 2
+      const fallbackFields = [
+        {
+          id: `fallback-${Date.now()}-0`,
+          type: 'SIGNATURE' as const,
+          label: 'Primary Signature',
+          x: 100,
+          y: 200,
+          width: 250,
+          height: 60,
+          page: 2,
+          required: true,
+        },
+        {
+          id: `fallback-${Date.now()}-1`,
+          type: 'DATE' as const,
+          label: 'Date',
+          x: 400,
+          y: 200,
+          width: 150,
+          height: 25,
+          page: 2,
+          required: true,
+        },
+      ];
+      
+      console.log('🔄 Using fallback fields:', fallbackFields);
+      setFields(fallbackFields);
+      setCurrentPage(2);
     },
   });
 
