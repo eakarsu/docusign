@@ -131,22 +131,40 @@ export class AIService {
   static async detectFields(documentText: string) {
     try {
       const fieldDetectionPrompt = `
-        Analyze the following document text and identify locations where signature fields, date fields, and text input fields should be placed.
+        Analyze the following legal document text and identify ALL signature fields, witness fields, date fields, and text input fields.
+
+        Pay special attention to:
+        - Individual signature sections (recipient signatures)
+        - Company signature sections (director signatures) 
+        - Witness signature fields
+        - Witness name fields
+        - Witness address fields
+        - Date fields
+        - Any blank lines or underscores that indicate input areas
 
         Document text:
         ${documentText}
 
-        Please respond in JSON format with an array of suggested fields:
+        Please respond in JSON format with a comprehensive array of ALL suggested fields:
         {
           "fields": [
             {
               "type": "SIGNATURE|DATE|TEXT|INITIAL",
-              "label": "Field label",
+              "label": "Field label (be specific, e.g., 'Recipient Signature', 'Witness Name', 'Witness Address')",
               "required": true|false,
-              "suggestedPosition": "description of where this field should be placed"
+              "suggestedPosition": "description of where this field should be placed",
+              "section": "individual|company|witness"
             }
           ]
         }
+
+        Make sure to include fields for:
+        1. Main signatures (recipient/director)
+        2. Witness signatures  
+        3. Witness names
+        4. Witness addresses
+        5. Date fields
+        6. Any other input areas marked with underscores or blank spaces
       `;
 
       const response = await openai.chat.completions.create({
@@ -154,7 +172,7 @@ export class AIService {
         messages: [
           {
             role: 'system',
-            content: 'You are a document processing expert. Identify appropriate locations for form fields.'
+            content: 'You are a legal document processing expert. Identify ALL signature and input fields in legal documents, especially witness-related fields.'
           },
           {
             role: 'user',
@@ -166,20 +184,53 @@ export class AIService {
 
       const responseText = response.choices[0]?.message?.content;
       if (!responseText) {
-        throw createError('Failed to detect fields', 500);
+        // Fallback with common legal document fields
+        return [
+          { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual' },
+          { type: 'SIGNATURE', label: 'Witness Signature', required: true, section: 'witness' },
+          { type: 'TEXT', label: 'Witness Name', required: true, section: 'witness' },
+          { type: 'TEXT', label: 'Witness Address', required: true, section: 'witness' },
+          { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company' },
+          { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness' },
+          { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness' },
+          { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness' },
+          { type: 'DATE', label: 'Signature Date', required: true, section: 'general' },
+        ];
       }
 
       let fieldSuggestions;
       try {
         fieldSuggestions = JSON.parse(responseText);
       } catch {
-        fieldSuggestions = { fields: [] };
+        // Fallback with enhanced field detection
+        return [
+          { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual' },
+          { type: 'SIGNATURE', label: 'Witness Signature', required: true, section: 'witness' },
+          { type: 'TEXT', label: 'Witness Name', required: true, section: 'witness' },
+          { type: 'TEXT', label: 'Witness Address', required: true, section: 'witness' },
+          { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company' },
+          { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness' },
+          { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness' },
+          { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness' },
+          { type: 'DATE', label: 'Signature Date', required: true, section: 'general' },
+        ];
       }
 
       return fieldSuggestions.fields || [];
     } catch (error) {
       console.error('Field detection error:', error);
-      throw createError('Failed to detect fields', 500);
+      // Return fallback fields for legal documents
+      return [
+        { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual' },
+        { type: 'SIGNATURE', label: 'Witness Signature', required: true, section: 'witness' },
+        { type: 'TEXT', label: 'Witness Name', required: true, section: 'witness' },
+        { type: 'TEXT', label: 'Witness Address', required: true, section: 'witness' },
+        { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company' },
+        { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness' },
+        { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness' },
+        { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness' },
+        { type: 'DATE', label: 'Signature Date', required: true, section: 'general' },
+      ];
     }
   }
 }

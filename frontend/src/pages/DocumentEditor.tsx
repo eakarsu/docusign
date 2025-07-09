@@ -100,17 +100,48 @@ const DocumentEditor: React.FC = () => {
   const detectFieldsMutation = useMutation({
     mutationFn: () => aiAPI.detectFields(id!),
     onSuccess: (data) => {
-      const aiFields = data.data.fields.map((field: any, index: number) => ({
-        id: `ai-${index}`,
-        type: field.type,
-        label: field.label,
-        x: 100 + (index * 20),
-        y: 100 + (index * 20),
-        width: 150,
-        height: 30,
-        page: 1,
-        required: field.required || false,
-      }));
+      const aiFields = data.data.fields.map((field: any, index: number) => {
+        // Better positioning based on field type and section
+        let x = 400; // Start from middle-right of document
+        let y = 400 - (index * 60); // Spread vertically
+        let width = 200;
+        let height = 30;
+        
+        // Adjust positioning based on field type
+        if (field.type === 'SIGNATURE') {
+          width = 250;
+          height = 60;
+        } else if (field.type === 'TEXT') {
+          width = 300;
+          height = 25;
+        } else if (field.type === 'DATE') {
+          width = 150;
+          height = 25;
+        }
+        
+        // Position based on section for better organization
+        if (field.section === 'witness') {
+          x = 100; // Left side for witness fields
+        } else if (field.section === 'company') {
+          y = y - 200; // Lower on page for company section
+        }
+        
+        // Ensure fields don't go off-page
+        if (y < 50) y = 50 + (index % 5) * 40;
+        
+        return {
+          id: `ai-${index}`,
+          type: field.type,
+          label: field.label || `${field.type} Field`,
+          x,
+          y,
+          width,
+          height,
+          page: currentPage,
+          required: field.required || false,
+        };
+      });
+      
       setFields([...fields, ...aiFields]);
       addFieldsToCanvas(aiFields);
     },
