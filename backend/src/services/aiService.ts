@@ -194,17 +194,21 @@ export class AIService {
 
       const responseText = response.choices[0]?.message?.content;
       if (!responseText) {
-        // Fallback with common legal document fields
+        // Fallback with comprehensive legal document fields
         return [
-          { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual' },
-          { type: 'SIGNATURE', label: 'Witness Signature', required: true, section: 'witness' },
-          { type: 'TEXT', label: 'Witness Name', required: true, section: 'witness' },
-          { type: 'TEXT', label: 'Witness Address', required: true, section: 'witness' },
-          { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company' },
-          { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness' },
-          { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness' },
-          { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness' },
-          { type: 'DATE', label: 'Signature Date', required: true, section: 'general' },
+          // Individual section signatures
+          { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual', suggestedPage: 1 },
+          { type: 'SIGNATURE', label: 'Individual Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Individual Witness Name', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Individual Witness Address', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'DATE', label: 'Individual Signature Date', required: true, section: 'individual', suggestedPage: 1 },
+          
+          // Company section signatures
+          { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company', suggestedPage: 1 },
+          { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'DATE', label: 'Company Signature Date', required: true, section: 'company', suggestedPage: 1 },
         ];
       }
 
@@ -214,32 +218,40 @@ export class AIService {
       } catch {
         // Fallback with enhanced field detection
         return [
-          { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual' },
-          { type: 'SIGNATURE', label: 'Witness Signature', required: true, section: 'witness' },
-          { type: 'TEXT', label: 'Witness Name', required: true, section: 'witness' },
-          { type: 'TEXT', label: 'Witness Address', required: true, section: 'witness' },
-          { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company' },
-          { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness' },
-          { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness' },
-          { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness' },
-          { type: 'DATE', label: 'Signature Date', required: true, section: 'general' },
+          // Individual section signatures
+          { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual', suggestedPage: 1 },
+          { type: 'SIGNATURE', label: 'Individual Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Individual Witness Name', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Individual Witness Address', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'DATE', label: 'Individual Signature Date', required: true, section: 'individual', suggestedPage: 1 },
+          
+          // Company section signatures
+          { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company', suggestedPage: 1 },
+          { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness', suggestedPage: 1 },
+          { type: 'DATE', label: 'Company Signature Date', required: true, section: 'company', suggestedPage: 1 },
         ];
       }
 
       return fieldSuggestions.fields || [];
     } catch (error) {
       console.error('Field detection error:', error);
-      // Return fallback fields for legal documents
+      // Return comprehensive fallback fields for legal documents
       return [
-        { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual' },
-        { type: 'SIGNATURE', label: 'Witness Signature', required: true, section: 'witness' },
-        { type: 'TEXT', label: 'Witness Name', required: true, section: 'witness' },
-        { type: 'TEXT', label: 'Witness Address', required: true, section: 'witness' },
-        { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company' },
-        { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness' },
-        { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness' },
-        { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness' },
-        { type: 'DATE', label: 'Signature Date', required: true, section: 'general' },
+        // Individual section signatures
+        { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual', suggestedPage: 1 },
+        { type: 'SIGNATURE', label: 'Individual Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
+        { type: 'TEXT', label: 'Individual Witness Name', required: true, section: 'witness', suggestedPage: 1 },
+        { type: 'TEXT', label: 'Individual Witness Address', required: true, section: 'witness', suggestedPage: 1 },
+        { type: 'DATE', label: 'Individual Signature Date', required: true, section: 'individual', suggestedPage: 1 },
+        
+        // Company section signatures
+        { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company', suggestedPage: 1 },
+        { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
+        { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness', suggestedPage: 1 },
+        { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness', suggestedPage: 1 },
+        { type: 'DATE', label: 'Company Signature Date', required: true, section: 'company', suggestedPage: 1 },
       ];
     }
   }
