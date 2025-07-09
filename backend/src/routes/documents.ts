@@ -269,4 +269,40 @@ router.post('/:id/sign', authenticate, async (req: AuthRequest, res, next) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/documents/{id}:
+ *   delete:
+ *     summary: Delete a document
+ *     tags: [Documents]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Document deleted successfully
+ *       404:
+ *         description: Document not found
+ *       403:
+ *         description: Access denied
+ */
+router.delete('/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const result = await DocumentService.deleteDocument(
+      req.params.id,
+      req.user!.id,
+      req.user!.role
+    );
+
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 export default router;
