@@ -598,7 +598,6 @@ const DocumentEditor: React.FC = () => {
             textAlign: 'center',
             originX: 'center',
             originY: 'center',
-            borderRadius: 8,
             shadow: new fabric.Shadow({
               color: 'rgba(0, 0, 0, 0.3)',
               blur: 5,
