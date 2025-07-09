@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { createTestDocument } from '../utils/createTestDocument';
 
 const prisma = new PrismaClient();
@@ -20,7 +20,7 @@ async function seedTestData() {
           firstName: 'Test',
           lastName: 'User',
           password: '$2b$10$dummy.hash.for.test.user', // In real app, hash properly
-          role: 'USER' as any
+          role: UserRole.USER
         }
       });
     }
