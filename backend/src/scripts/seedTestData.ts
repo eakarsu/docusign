@@ -20,7 +20,7 @@ async function seedTestData() {
           firstName: 'Test',
           lastName: 'User',
           password: '$2b$10$dummy.hash.for.test.user', // In real app, hash properly
-          role: UserRole.USER
+          role: UserRole.SENDER
         }
       });
     }
