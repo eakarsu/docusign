@@ -586,18 +586,24 @@ const DocumentEditor: React.FC = () => {
         console.log('✅ Created fabric rectangle');
 
         // Add label text
-        const labelText = new fabric.Text(`${field.label}`, {
-          left: x + 5,
-          top: y + 5,
-          fontSize: 12,
-          fill: fieldColor,
-          fontWeight: 'bold',
-          selectable: false,
-          evented: false,
-        });
-        
-        // Add click handler to label text for signature fields too
+        let labelText;
         if (field.type === 'SIGNATURE') {
+          // For signature fields, create a more prominent label
+          labelText = new fabric.Text(field.signed ? `✓ SIGNED` : `🖊️ CLICK TO SIGN`, {
+            left: x + 10,
+            top: y + (field.height / 2) - 10,
+            fontSize: 16,
+            fill: field.signed ? '#4caf50' : '#000',
+            fontWeight: 'bold',
+            selectable: false,
+            evented: true,
+            hoverCursor: 'pointer',
+            moveCursor: 'pointer',
+            backgroundColor: field.signed ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 255, 0, 0.8)',
+            padding: 5,
+          });
+          
+          // Add click handler to label text for signature fields
           labelText.on('mousedown', (e) => {
             console.log('🖊️ Signature label clicked:', field.label);
             if (e.e) {
@@ -607,11 +613,16 @@ const DocumentEditor: React.FC = () => {
             setSelectedFieldForSigning(field);
             setSignatureDialogOpen(true);
           });
-          
-          labelText.set({
-            hoverCursor: 'pointer',
-            moveCursor: 'pointer',
-            evented: true,
+        } else {
+          // For other field types, use regular label
+          labelText = new fabric.Text(`${field.label}`, {
+            left: x + 5,
+            top: y + 5,
+            fontSize: 12,
+            fill: fieldColor,
+            fontWeight: 'bold',
+            selectable: false,
+            evented: false,
           });
         }
 
@@ -650,14 +661,16 @@ const DocumentEditor: React.FC = () => {
           
           // Make signature fields more visually distinct and clickable
           fabricObject.set({
-            fill: field.signed ? '#4caf5060' : '#ffc10780',
+            fill: field.signed ? '#4caf5060' : '#ffc107a0',
             stroke: field.signed ? '#4caf50' : '#ffc107',
-            strokeWidth: field.signed ? 3 : 6,
-            strokeDashArray: field.signed ? [] : [12, 6],
+            strokeWidth: field.signed ? 3 : 8,
+            strokeDashArray: field.signed ? [] : [15, 8],
             selectable: false, // Prevent dragging, only allow clicking
             evented: true,
             hoverCursor: 'pointer',
             moveCursor: 'pointer',
+            rx: 5, // Rounded corners
+            ry: 5,
           });
           
           // Update label for signed fields
@@ -665,16 +678,17 @@ const DocumentEditor: React.FC = () => {
             labelText.set({
               text: `✓ SIGNED`,
               fill: '#4caf50',
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: 'bold'
             });
           } else {
             labelText.set({
               text: `🖊️ CLICK TO SIGN`,
               fill: '#000',
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: 'bold',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)'
+              backgroundColor: 'rgba(255, 255, 0, 0.8)',
+              padding: 5
             });
           }
         }
@@ -926,37 +940,77 @@ const DocumentEditor: React.FC = () => {
             variant="contained"
             color="warning"
             onClick={() => {
-              console.log('🧪 Creating test signature fields on current page:', currentPage);
+              console.log('🧪 Creating comprehensive test signature fields on both pages');
               const testFields: DocumentField[] = [
+                // Page 1 fields
                 {
                   id: `test-sig-${Date.now()}-1`,
                   type: 'SIGNATURE' as const,
-                  label: 'Test Signature 1',
-                  x: 100,
-                  y: 200,
-                  width: 250,
-                  height: 60,
-                  page: currentPage,
+                  label: 'Client Initial',
+                  x: 200,
+                  y: 120,
+                  width: 150,
+                  height: 40,
+                  page: 1,
                   required: true,
                 },
                 {
                   id: `test-sig-${Date.now()}-2`,
                   type: 'SIGNATURE' as const,
-                  label: 'Test Signature 2',
-                  x: 100,
-                  y: 300,
-                  width: 250,
-                  height: 60,
-                  page: currentPage,
+                  label: 'Provider Initial',
+                  x: 200,
+                  y: 80,
+                  width: 150,
+                  height: 40,
+                  page: 1,
                   required: true,
+                },
+                // Page 2 fields
+                {
+                  id: `test-sig-${Date.now()}-3`,
+                  type: 'SIGNATURE' as const,
+                  label: 'Client Final Signature',
+                  x: 200,
+                  y: 350,
+                  width: 200,
+                  height: 50,
+                  page: 2,
+                  required: true,
+                },
+                {
+                  id: `test-sig-${Date.now()}-4`,
+                  type: 'SIGNATURE' as const,
+                  label: 'Provider Final Signature',
+                  x: 200,
+                  y: 250,
+                  width: 200,
+                  height: 50,
+                  page: 2,
+                  required: true,
+                },
+                {
+                  id: `test-sig-${Date.now()}-5`,
+                  type: 'SIGNATURE' as const,
+                  label: 'Witness Signature',
+                  x: 200,
+                  y: 150,
+                  width: 200,
+                  height: 50,
+                  page: 2,
+                  required: false,
                 },
               ];
               setFields(testFields);
               console.log('🧪 Test fields created:', testFields);
+              
+              // Navigate to page 2 where most signatures are
+              if (currentPage === 1) {
+                setCurrentPage(2);
+              }
             }}
             sx={{ mt: 1 }}
           >
-            TEST: Add Signature Fields
+            TEST: Add All Signature Fields
           </Button>
 
           <Box sx={{ mt: 3 }}>
