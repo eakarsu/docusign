@@ -207,18 +207,13 @@ const SignatureCapture: React.FC<SignatureCaptureProps> = ({
                 backgroundColor="white"
                 penColor="black"
                 onBegin={() => {
-                  // Force re-render when user starts drawing
-                  setTimeout(() => {
-                    if (signatureRef.current) {
-                      signatureRef.current.getCanvas().getContext('2d');
-                    }
-                  }, 10);
+                  // User started drawing - no action needed
                 }}
                 onEnd={() => {
-                  // Force validation check when user finishes drawing
+                  // User finished drawing - force component re-render to update button state
                   setTimeout(() => {
-                    // This will trigger a re-render of the component
-                    setTypedSignature(typedSignature);
+                    // Trigger a state update to re-evaluate button state
+                    setTypedSignature(prev => prev);
                   }, 10);
                 }}
               />
