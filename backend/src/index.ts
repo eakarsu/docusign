@@ -50,7 +50,7 @@ app.use(limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Serve uploaded files statically
+// Serve uploaded files statically (including overlay images)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Swagger documentation
