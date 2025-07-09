@@ -347,11 +347,10 @@ const DocumentEditor: React.FC = () => {
             variant="outlined"
             startIcon={<AIIcon />}
             onClick={() => detectFieldsMutation.mutate()}
-            disabled={true}
+            disabled={detectFieldsMutation.isPending}
             sx={{ mt: 2, mb: 2 }}
-            title="AI field detection requires OpenAI API key configuration"
           >
-            AI Detect Fields (Disabled)
+            {detectFieldsMutation.isPending ? 'Detecting...' : 'AI Detect Fields'}
           </Button>
 
           <Button
