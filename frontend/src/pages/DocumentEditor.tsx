@@ -245,29 +245,30 @@ const DocumentEditor: React.FC = () => {
       // Set fields first
       setFields(aiFields);
       
-      // Don't automatically navigate - let user navigate manually
-      console.log('📄 Fields distributed across pages:', 
-        aiFields.reduce((acc, field) => {
-          acc[field.page] = (acc[field.page] || 0) + 1;
-          return acc;
-        }, {} as Record<number, number>)
-      );
+      // Find the page with the most fields and navigate there
+      const fieldsByPage = aiFields.reduce((acc, field) => {
+        acc[field.page] = (acc[field.page] || 0) + 1;
+        return acc;
+      }, {} as Record<number, number>);
       
-      // Don't auto-navigate - let user stay on current page and navigate manually
-      console.log('📄 Fields distributed across pages:', 
-        aiFields.reduce((acc, field) => {
-          acc[field.page] = (acc[field.page] || 0) + 1;
-          return acc;
-        }, {} as Record<number, number>)
-      );
+      console.log('📄 Fields distributed across pages:', fieldsByPage);
       
-      // Re-render fields for current page
+      // Find the page with the most fields
+      const pageWithMostFields = Object.entries(fieldsByPage)
+        .sort(([,a], [,b]) => b - a)[0]?.[0];
+      
+      if (pageWithMostFields && parseInt(pageWithMostFields) !== currentPage) {
+        console.log(`🔄 Auto-navigating to page ${pageWithMostFields} where most fields are located...`);
+        setCurrentPage(parseInt(pageWithMostFields));
+      }
+      
+      // Re-render fields after navigation
       setTimeout(() => {
         console.log('🔄 Re-rendering fields for current page...');
         if (canvas) {
           addFieldsToCanvas(aiFields);
         }
-      }, 100);
+      }, 200);
     },
     onError: (error) => {
       console.error('❌ AI field detection failed:', error);
@@ -302,16 +303,19 @@ const DocumentEditor: React.FC = () => {
       setFields(fallbackFields);
       console.log('📄 Fallback fields created for page 2');
       
-      // Don't auto-navigate - stay on current page
-      console.log('📄 Fallback fields created for page 2');
+      // Navigate to page 2 where the fallback fields are located
+      if (currentPage !== 2) {
+        console.log('🔄 Auto-navigating to page 2 where fallback fields are located...');
+        setCurrentPage(2);
+      }
       
-      // Re-render fields for current page
+      // Re-render fields after navigation
       setTimeout(() => {
         console.log('🔄 Re-rendering fallback fields...');
         if (canvas) {
           addFieldsToCanvas(fallbackFields);
         }
-      }, 100);
+      }, 200);
     },
   });
 
