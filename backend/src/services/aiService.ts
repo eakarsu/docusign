@@ -136,9 +136,9 @@ export class AIService {
     console.log('🤖 AI generateSignatureOverlayImage called for document:', documentId, 'page:', pageNumber);
     
     try {
-      // Use AI vision to analyze the PDF page image and generate overlay image
+      // Use AI vision to analyze the PDF page image and detect signature locations
       const prompt = `
-        Analyze this PDF page image and create an overlay image with "CLICK TO SIGN" buttons positioned exactly over signature locations.
+        Analyze this PDF page image and identify ALL signature locations where someone needs to sign.
         
         Look for these visual patterns:
         - Lines with "Signature:" text followed by underscores
@@ -148,28 +148,22 @@ export class AIService {
         - Director signature areas
         - Any underscores that indicate signature placement
         
-        Create a transparent PNG overlay image that:
-        1. Has the same dimensions as the input image
-        2. Contains orange "CLICK TO SIGN" buttons positioned exactly over signature lines
-        3. Each button should be approximately 200x50 pixels
-        4. Use orange background (#FF9800) with white text
-        5. Make buttons clearly visible and clickable-looking
+        For each signature location you find, provide the exact pixel coordinates where a "CLICK TO SIGN" button should be placed.
         
-        Return the overlay image as a base64 encoded PNG.
-        Also provide a JSON array of button locations for click detection:
+        Return a JSON array with this structure:
         [
           {
-            "x": button x coordinate,
-            "y": button y coordinate,
-            "width": button width,
-            "height": button height,
-            "label": "descriptive name like 'Director Signature'"
+            "x": pixel x coordinate,
+            "y": pixel y coordinate, 
+            "width": button width (suggest 200),
+            "height": button height (suggest 50),
+            "label": "descriptive name like 'Client Signature' or 'Witness Initial'",
+            "type": "SIGNATURE" | "INITIAL" | "DATE"
           }
         ]
         
-        Format your response as:
-        OVERLAY_IMAGE: data:image/png;base64,[base64_data]
-        LOCATIONS: [json_array]
+        Be very precise with coordinates so the buttons appear exactly over the signature lines.
+        Return only the JSON array, no other text.
       `;
 
       console.log('🤖 Making OpenRouter API call with vision for overlay generation...');
@@ -210,14 +204,27 @@ export class AIService {
 
       console.log('🤖 AI Vision Response:', aiResponse.substring(0, 500) + '...');
 
-      console.log('🤖 AI Vision Response (first 1000 chars):', aiResponse.substring(0, 1000));
+      // Parse the AI response to get signature locations
+      let signatureLocations;
+      try {
+        const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+        const jsonString = jsonMatch ? jsonMatch[0] : aiResponse;
+        signatureLocations = JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error('🤖 Failed to parse AI vision response as JSON:', parseError);
+        console.log('🔄 AI vision parsing failed, creating programmatic overlay');
+        return await this.createProgrammaticOverlay(documentId, pageNumber, pdfImageBase64);
+      }
+
+      if (!Array.isArray(signatureLocations)) {
+        console.log('🔄 AI response is not an array, creating programmatic overlay');
+        return await this.createProgrammaticOverlay(documentId, pageNumber, pdfImageBase64);
+      }
+
+      console.log('🤖 Parsed signature locations from AI vision:', signatureLocations);
       
-      // Since AI vision overlay generation is complex, let's use a simpler approach
-      // Create overlay image programmatically based on detected signature locations
-      console.log('🔄 AI vision did not provide usable overlay, creating programmatic overlay');
-      
-      // Use the fallback approach but with better positioning based on the document
-      return await this.createProgrammaticOverlay(documentId, pageNumber, pdfImageBase64);
+      // Create programmatic overlay with AI-detected locations
+      return await this.createProgrammaticOverlayWithLocations(documentId, pageNumber, pdfImageBase64, signatureLocations);
 
     } catch (error) {
       console.error('🤖 AI vision overlay generation failed, using fallback:', error);
@@ -259,6 +266,103 @@ export class AIService {
     }
   }
 
+  static async createProgrammaticOverlayWithLocations(documentId: string, pageNumber: number, pdfImageBase64: string, aiLocations: any[]) {
+    console.log('🎨 Creating programmatic overlay with AI-detected locations for page:', pageNumber);
+    
+    try {
+      // Create overlay image using node-canvas
+      const { createCanvas, loadImage } = require('canvas');
+      
+      // Load the PDF page image
+      const pdfImage = await loadImage(`data:image/png;base64,${pdfImageBase64}`);
+      
+      // Create transparent canvas with same dimensions as PDF
+      const canvas = createCanvas(pdfImage.width, pdfImage.height);
+      const ctx = canvas.getContext('2d');
+      
+      // Make canvas transparent
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Use AI-detected locations or fallback to default positions
+      const signatureLocations = aiLocations.length > 0 ? aiLocations : (pageNumber === 1 ? [
+        { x: 200, y: pdfImage.height - 200, width: 200, height: 50, label: 'Client Initial' },
+        { x: 200, y: pdfImage.height - 140, width: 200, height: 50, label: 'Provider Initial' }
+      ] : [
+        { x: 480, y: 300, width: 200, height: 50, label: 'Director Signature' },
+        { x: 480, y: 250, width: 200, height: 50, label: 'Witness Signature' },
+        { x: 480, y: 200, width: 200, height: 50, label: 'Witness Name' }
+      ]);
+      
+      // Draw "CLICK TO SIGN" buttons on transparent background
+      signatureLocations.forEach((location) => {
+        // Draw button background with rounded corners
+        ctx.fillStyle = '#FF9800';
+        ctx.strokeStyle = '#F57C00';
+        ctx.lineWidth = 3;
+        
+        const x = location.x;
+        const y = location.y;
+        const width = location.width || 200;
+        const height = location.height || 50;
+        const radius = 8;
+        
+        // Draw rounded rectangle
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw text
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(
+          '🖊️ CLICK TO SIGN',
+          x + width / 2,
+          y + height / 2
+        );
+      });
+      
+      // Convert to base64
+      const overlayImageBase64 = canvas.toDataURL('image/png');
+      
+      // Save the overlay image
+      const savedImagePath = await this.saveOverlayImage(overlayImageBase64, documentId, pageNumber);
+      
+      return {
+        overlayImage: overlayImageBase64,
+        savedImagePath,
+        signatureFields: signatureLocations.map((location, index) => ({
+          id: `ai-overlay-${Date.now()}-${index}`,
+          type: 'SIGNATURE',
+          label: location.label || `Signature ${index + 1}`,
+          x: location.x,
+          y: location.y,
+          width: location.width || 200,
+          height: location.height || 50,
+          page: pageNumber,
+          required: true,
+          overlayType: 'CLICK_TO_SIGN'
+        }))
+      };
+      
+    } catch (error) {
+      console.error('🤖 Failed to create programmatic overlay with AI locations:', error);
+      return await this.createProgrammaticOverlay(documentId, pageNumber, pdfImageBase64);
+    }
+  }
+
   static async createProgrammaticOverlay(documentId: string, pageNumber: number, pdfImageBase64: string) {
     console.log('🎨 Creating programmatic overlay for page:', pageNumber);
     
@@ -269,9 +373,12 @@ export class AIService {
       // Load the PDF page image
       const pdfImage = await loadImage(`data:image/png;base64,${pdfImageBase64}`);
       
-      // Create canvas with same dimensions as PDF
+      // Create transparent canvas with same dimensions as PDF
       const canvas = createCanvas(pdfImage.width, pdfImage.height);
       const ctx = canvas.getContext('2d');
+      
+      // Make canvas transparent
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Define signature locations based on page
       const signatureLocations = pageNumber === 1 ? [
@@ -283,16 +390,34 @@ export class AIService {
         { x: 480, y: 200, width: 200, height: 50, label: 'Witness Name' }
       ];
       
-      // Draw "CLICK TO SIGN" buttons
+      // Draw "CLICK TO SIGN" buttons on transparent background
       signatureLocations.forEach((location) => {
-        // Draw button background
+        // Draw button background with rounded corners
         ctx.fillStyle = '#FF9800';
-        ctx.fillRect(location.x, location.y, location.width, location.height);
-        
-        // Draw button border
         ctx.strokeStyle = '#F57C00';
         ctx.lineWidth = 3;
-        ctx.strokeRect(location.x, location.y, location.width, location.height);
+        
+        const x = location.x;
+        const y = location.y;
+        const width = location.width;
+        const height = location.height;
+        const radius = 8;
+        
+        // Draw rounded rectangle
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        
+        ctx.fill();
+        ctx.stroke();
         
         // Draw text
         ctx.fillStyle = 'white';
@@ -301,8 +426,8 @@ export class AIService {
         ctx.textBaseline = 'middle';
         ctx.fillText(
           '🖊️ CLICK TO SIGN',
-          location.x + location.width / 2,
-          location.y + location.height / 2
+          x + width / 2,
+          y + height / 2
         );
       });
       
