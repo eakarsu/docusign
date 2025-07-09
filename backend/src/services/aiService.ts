@@ -132,50 +132,53 @@ export class AIService {
     }
   }
 
-  static async detectFields(documentText: string) {
-    console.log('🤖 AI detectFields called with text length:', documentText.length);
+  static async detectSignatureOverlays(documentText: string) {
+    console.log('🤖 AI detectSignatureOverlays called with text length:', documentText.length);
     console.log('🤖 Document text preview:', documentText.substring(0, 200));
     
     try {
-      // Use actual AI to detect signature fields
+      // Use AI to identify signature locations and generate overlay instructions
       const prompt = `
-        Analyze this legal document and identify all signature fields, date fields, and text input fields.
+        Analyze this legal document and identify ALL signature locations where someone needs to sign.
         
         Document content:
         ${documentText}
         
-        Please return a JSON array of field objects with the following structure:
+        For each signature location, provide:
+        1. The exact text that indicates a signature is needed
+        2. Which page it appears on
+        3. A descriptive label for what type of signature it is
+        
+        Please return a JSON array with this structure:
         [
           {
-            "type": "SIGNATURE" | "DATE" | "TEXT",
-            "label": "descriptive label",
-            "required": true/false,
-            "section": "individual" | "witness" | "general",
-            "suggestedPage": 1 or 2,
-            "x": estimated x position (0-600),
-            "y": estimated y position (0-800),
-            "width": field width,
-            "height": field height
+            "signatureText": "exact text from document like 'Signature: _______' or 'Client Initial: _______'",
+            "page": 1 or 2,
+            "label": "descriptive name like 'Client Signature' or 'Witness Initial'",
+            "type": "SIGNATURE" | "INITIAL",
+            "required": true/false
           }
         ]
         
-        Focus on finding:
-        - Signature lines (look for "Signature:", "Sign:", underscores, signature blocks)
-        - Date fields (look for "Date:", date lines)
-        - Name fields (look for "Name:", "Print Name:")
-        - Initial fields (look for "Initial:")
+        Look for these patterns:
+        - "Signature:" followed by underscores or lines
+        - "Initial:" followed by underscores or lines  
+        - "Sign:" or "Signed:" patterns
+        - Any underscores that indicate signature placement
+        - "Witness" signature areas
+        - "Director" signature areas
         
         Return only the JSON array, no other text.
       `;
 
-      console.log('🤖 Making OpenRouter API call...');
+      console.log('🤖 Making OpenRouter API call for signature overlay detection...');
       
       const response = await openai.chat.completions.create({
         model: 'openai/gpt-4o',
         messages: [
           {
             role: 'system',
-            content: 'You are an expert at analyzing legal documents and identifying signature fields. Return only valid JSON.'
+            content: 'You are an expert at analyzing legal documents and finding signature locations. Return only valid JSON.'
           },
           {
             role: 'user',
@@ -183,7 +186,7 @@ export class AIService {
           }
         ],
         temperature: 0.1,
-        max_tokens: 2000
+        max_tokens: 1500
       });
 
       console.log('🤖 OpenRouter API response received');
@@ -196,248 +199,122 @@ export class AIService {
       console.log('🤖 AI Response:', aiResponse);
 
       // Parse the AI response
-      let aiFields;
+      let signatureLocations;
       try {
-        // Clean the response to extract JSON
         const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
         const jsonString = jsonMatch ? jsonMatch[0] : aiResponse;
-        aiFields = JSON.parse(jsonString);
+        signatureLocations = JSON.parse(jsonString);
       } catch (parseError) {
         console.error('🤖 Failed to parse AI response as JSON:', parseError);
         throw new Error('Invalid AI response format');
       }
 
-      if (!Array.isArray(aiFields)) {
+      if (!Array.isArray(signatureLocations)) {
         throw new Error('AI response is not an array');
       }
 
-      console.log('🤖 Parsed AI fields:', aiFields);
+      console.log('🤖 Parsed signature locations:', signatureLocations);
       
-      // Validate and normalize the fields
-      const normalizedFields = aiFields.map((field: any, index: number) => ({
-        type: field.type || 'SIGNATURE',
-        label: field.label || `Field ${index + 1}`,
-        required: field.required !== false,
-        section: field.section || 'individual',
-        suggestedPage: field.suggestedPage || (field.type === 'SIGNATURE' ? 2 : 1),
-        x: Math.max(50, Math.min(field.x || 200, 500)),
-        y: Math.max(50, Math.min(field.y || 200, 700)),
-        width: field.width || (field.type === 'SIGNATURE' ? 200 : 150),
-        height: field.height || (field.type === 'SIGNATURE' ? 50 : 25)
+      // Convert to overlay format
+      const overlays = signatureLocations.map((location: any, index: number) => ({
+        id: `overlay-${Date.now()}-${index}`,
+        type: location.type || 'SIGNATURE',
+        label: location.label || `Signature ${index + 1}`,
+        page: location.page || 1,
+        signatureText: location.signatureText || '',
+        required: location.required !== false,
+        overlayType: 'CLICK_TO_SIGN'
       }));
 
-      console.log('🤖 Normalized AI fields:', normalizedFields);
-      return normalizedFields;
+      console.log('🤖 Generated signature overlays:', overlays);
+      return overlays;
 
     } catch (error) {
-      console.error('🤖 AI field detection failed, using fallback:', error);
+      console.error('🤖 AI signature overlay detection failed, using fallback:', error);
       
-      // Fallback to comprehensive rule-based detection
-      const hasInitialSignatures = documentText.includes('INITIAL SIGNATURES') || documentText.includes('Client Initial') || documentText.includes('Provider Initial');
-      const hasFinalSignatures = documentText.includes('FINAL SIGNATURES') || documentText.includes('Full Signature') || documentText.includes('CLIENT:') || documentText.includes('SERVICE PROVIDER:');
-      const hasWitnessSection = documentText.includes('WITNESS') || documentText.includes('Witness');
-      const hasDirectorSignature = documentText.includes('Signature of Director') || documentText.includes('Director');
+      // Fallback to rule-based signature overlay detection
+      const overlays = [];
       
-      console.log('🤖 Fallback document analysis:', {
-        hasInitialSignatures,
-        hasFinalSignatures,
-        hasWitnessSection,
-        hasDirectorSignature
+      // Look for signature patterns in the text
+      const signaturePatterns = [
+        { pattern: /Client Initial:.*?_+/gi, label: 'Client Initial', page: 1, type: 'INITIAL' },
+        { pattern: /Provider Initial:.*?_+/gi, label: 'Provider Initial', page: 1, type: 'INITIAL' },
+        { pattern: /Full Signature:.*?_+/gi, label: 'Client Final Signature', page: 2, type: 'SIGNATURE' },
+        { pattern: /Signature:.*?_+/gi, label: 'Signature', page: 2, type: 'SIGNATURE' },
+        { pattern: /Witness.*?Signature:.*?_+/gi, label: 'Witness Signature', page: 2, type: 'SIGNATURE' },
+        { pattern: /Director.*?Signature:.*?_+/gi, label: 'Director Signature', page: 2, type: 'SIGNATURE' }
+      ];
+      
+      signaturePatterns.forEach((pattern, index) => {
+        const matches = documentText.match(pattern.pattern);
+        if (matches) {
+          matches.forEach((match, matchIndex) => {
+            overlays.push({
+              id: `fallback-overlay-${index}-${matchIndex}`,
+              type: pattern.type,
+              label: pattern.label,
+              page: pattern.page,
+              signatureText: match.trim(),
+              required: true,
+              overlayType: 'CLICK_TO_SIGN'
+            });
+          });
+        }
       });
       
-      const fallbackFields = [];
-      
-      // Page 1 fields - Based on document content analysis
-      if (hasInitialSignatures) {
-        fallbackFields.push(
-          { 
-            type: 'TEXT', 
-            label: 'Client Name', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 1,
-            x: 150,
-            y: 200,
-            width: 200,
-            height: 25
+      // If no patterns found, create basic overlays
+      if (overlays.length === 0) {
+        overlays.push(
+          {
+            id: 'fallback-overlay-1',
+            type: 'INITIAL',
+            label: 'Client Initial',
+            page: 1,
+            signatureText: 'Client Initial: _________________________',
+            required: true,
+            overlayType: 'CLICK_TO_SIGN'
           },
-          { 
-            type: 'TEXT', 
-            label: 'Provider Name', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 1,
-            x: 150,
-            y: 160,
-            width: 200,
-            height: 25
+          {
+            id: 'fallback-overlay-2',
+            type: 'INITIAL',
+            label: 'Provider Initial',
+            page: 1,
+            signatureText: 'Provider Initial: _______________________',
+            required: true,
+            overlayType: 'CLICK_TO_SIGN'
           },
-          { 
-            type: 'SIGNATURE', 
-            label: 'Client Initial', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 1,
-            x: 200,
-            y: 120,
-            width: 200,
-            height: 40
+          {
+            id: 'fallback-overlay-3',
+            type: 'SIGNATURE',
+            label: 'Client Final Signature',
+            page: 2,
+            signatureText: 'Full Signature: _________________________',
+            required: true,
+            overlayType: 'CLICK_TO_SIGN'
           },
-          { 
-            type: 'DATE', 
-            label: 'Client Initial Date', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 1,
-            x: 450,
-            y: 120,
-            width: 100,
-            height: 25
+          {
+            id: 'fallback-overlay-4',
+            type: 'SIGNATURE',
+            label: 'Provider Final Signature',
+            page: 2,
+            signatureText: 'Full Signature: _________________________',
+            required: true,
+            overlayType: 'CLICK_TO_SIGN'
           },
-          { 
-            type: 'SIGNATURE', 
-            label: 'Provider Initial', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 1,
-            x: 200,
-            y: 80,
-            width: 200,
-            height: 40
-          },
-          { 
-            type: 'DATE', 
-            label: 'Provider Initial Date', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 1,
-            x: 450,
-            y: 80,
-            width: 100,
-            height: 25
-          }
-        );
-      }
-      
-      // Page 2 fields - Based on document content analysis
-      if (hasFinalSignatures) {
-        fallbackFields.push(
-          { 
-            type: 'SIGNATURE', 
-            label: 'Client Final Signature', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 2,
-            x: 200,
-            y: 350,
-            width: 250,
-            height: 50
-          },
-          { 
-            type: 'DATE', 
-            label: 'Client Signature Date', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 2,
-            x: 470,
-            y: 350,
-            width: 100,
-            height: 25
-          },
-          { 
-            type: 'TEXT', 
-            label: 'Client Printed Name', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 2,
-            x: 200,
-            y: 320,
-            width: 200,
-            height: 25
-          },
-          { 
-            type: 'SIGNATURE', 
-            label: 'Provider Final Signature', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 2,
-            x: 200,
-            y: 250,
-            width: 250,
-            height: 50
-          },
-          { 
-            type: 'DATE', 
-            label: 'Provider Signature Date', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 2,
-            x: 470,
-            y: 250,
-            width: 100,
-            height: 25
-          },
-          { 
-            type: 'TEXT', 
-            label: 'Provider Printed Name', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 2,
-            x: 200,
-            y: 220,
-            width: 200,
-            height: 25
-          }
-        );
-      }
-      
-      // Director signature if detected
-      if (hasDirectorSignature) {
-        fallbackFields.push(
-          { 
-            type: 'SIGNATURE', 
-            label: 'Director Signature', 
-            required: true, 
-            section: 'individual',
-            suggestedPage: 2,
-            x: 200,
-            y: 180,
-            width: 250,
-            height: 50
-          }
-        );
-      }
-      
-      // Witness fields if detected
-      if (hasWitnessSection) {
-        fallbackFields.push(
-          { 
-            type: 'SIGNATURE', 
-            label: 'Witness Signature', 
-            required: false, 
-            section: 'witness',
-            suggestedPage: 2,
-            x: 200,
-            y: 120,
-            width: 250,
-            height: 50
-          },
-          { 
-            type: 'TEXT', 
-            label: 'Witness Name', 
-            required: false, 
-            section: 'witness',
-            suggestedPage: 2,
-            x: 200,
-            y: 90,
-            width: 200,
-            height: 25
+          {
+            id: 'fallback-overlay-5',
+            type: 'SIGNATURE',
+            label: 'Witness Signature',
+            page: 2,
+            signatureText: 'Signature: _________________________',
+            required: false,
+            overlayType: 'CLICK_TO_SIGN'
           }
         );
       }
 
-      console.log('🤖 Returning comprehensive fallback fields:', fallbackFields);
-      return fallbackFields;
+      console.log('🤖 Returning fallback signature overlays:', overlays);
+      return overlays;
     }
   }
 }

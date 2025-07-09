@@ -108,14 +108,14 @@ const DocumentEditor: React.FC = () => {
     mutationFn: () => aiAPI.detectFields(id!),
     onSuccess: (data) => {
       console.log('🤖 AI API Response:', data);
-      console.log('🤖 AI detected fields raw:', data.data);
+      console.log('🤖 AI detected overlays raw:', data.data);
       
-      // Handle multiple possible response formats
-      const fieldsArray = data.data?.fields || data.data?.data || data.data || [];
-      console.log('🤖 Fields array:', fieldsArray);
+      // Handle signature overlay response
+      const overlaysArray = data.data?.overlays || data.data?.data || data.data || [];
+      console.log('🤖 Signature overlays array:', overlaysArray);
       
-      if (!Array.isArray(fieldsArray) || fieldsArray.length === 0) {
-        console.log('⚠️ No fields detected by AI, creating default fields for multi-page document');
+      if (!Array.isArray(overlaysArray) || overlaysArray.length === 0) {
+        console.log('⚠️ No signature overlays detected by AI, creating default overlays');
         
         // Create default fields for a 2-page document with signatures on page 2
         const defaultFields: DocumentField[] = [
@@ -203,91 +203,69 @@ const DocumentEditor: React.FC = () => {
         return;
       }
       
-      const aiFields = fieldsArray.map((field: any, index: number) => {
-        console.log(`🔍 Processing field ${index}:`, field);
+      // Convert overlays to signature fields with "CLICK TO SIGN" styling
+      const signatureFields = overlaysArray.map((overlay: any, index: number) => {
+        console.log(`🔍 Processing signature overlay ${index}:`, overlay);
         
-        // Generic positioning that works for any document
-        const column = index % 2; // Alternate between left and right columns
+        // Create visual signature fields that will show "CLICK TO SIGN"
+        const column = index % 2;
         const row = Math.floor(index / 2);
         
-        let x = column === 0 ? 100 : 350; // Left or right column
-        let y = 150 + (row * 100); // Vertical spacing
-        let width = 200;
-        let height = 30;
-        let page = 2; // Default to page 2 for signatures
-        
-        // Adjust dimensions based on field type
-        if (field.type === 'SIGNATURE') {
-          width = 250;
-          height = 60;
-        } else if (field.type === 'TEXT') {
-          width = 200;
-          height = 25;
-        } else if (field.type === 'DATE') {
-          width = 150;
-          height = 25;
-        } else if (field.type === 'INITIAL') {
-          width = 100;
-          height = 40;
-        }
-        
-        // Use suggested page if available, otherwise default to page 2
-        if (field.suggestedPage && field.suggestedPage <= numPages) {
-          page = field.suggestedPage;
-        }
-        
-        // Ensure fields stay within reasonable bounds
-        if (x + width > 600) x = 600 - width;
-        if (y + height > 800) y = 150 + ((index % 4) * 80);
+        let x = column === 0 ? 50 : 350;
+        let y = 100 + (row * 120); // More spacing for signature fields
+        let width = 250;
+        let height = 80;
         
         return {
-          id: `ai-${Date.now()}-${index}`,
-          type: (field.type || 'SIGNATURE') as DocumentField['type'],
-          label: field.label || `${field.type || 'SIGNATURE'} Field ${index + 1}`,
+          id: `signature-overlay-${Date.now()}-${index}`,
+          type: 'SIGNATURE' as const,
+          label: overlay.label || `Signature ${index + 1}`,
           x,
           y,
           width,
           height,
-          page,
-          required: field.required !== false, // Default to true
+          page: overlay.page || 1,
+          required: overlay.required !== false,
+          signatureText: overlay.signatureText || '',
+          overlayType: 'CLICK_TO_SIGN'
         };
       });
       
-      console.log('✅ Generated AI fields:', aiFields);
+      console.log('✅ Generated signature overlay fields:', signatureFields);
       
-      // Set fields first
-      setFields(aiFields);
+      // Set signature fields
+      setFields(signatureFields);
       
-      // Find the page with the most fields and navigate there
-      const fieldsByPage = aiFields.reduce((acc, field) => {
+      // Find the page with the most signature fields and navigate there
+      const fieldsByPage = signatureFields.reduce((acc, field) => {
         acc[field.page] = (acc[field.page] || 0) + 1;
         return acc;
       }, {} as Record<number, number>);
       
-      console.log('📄 Fields distributed across pages:', fieldsByPage);
+      console.log('📄 Signature fields distributed across pages:', fieldsByPage);
       
-      // Find the page with the most fields
+      // Find the page with the most signature fields
       const pageWithMostFields = Object.entries(fieldsByPage)
         .sort(([,a], [,b]) => b - a)[0]?.[0];
       
       if (pageWithMostFields && parseInt(pageWithMostFields) !== currentPage) {
-        console.log(`🔄 Auto-navigating to page ${pageWithMostFields} where most fields are located...`);
+        console.log(`🔄 Auto-navigating to page ${pageWithMostFields} where most signature fields are located...`);
         const targetPage = parseInt(pageWithMostFields);
         setCurrentPage(targetPage);
         
-        // Wait longer for page navigation to complete before rendering fields
+        // Wait for page navigation to complete before rendering signature overlays
         setTimeout(() => {
-          console.log(`🔄 Re-rendering fields for page ${targetPage}...`);
+          console.log(`🔄 Re-rendering signature overlays for page ${targetPage}...`);
           if (canvas) {
-            addFieldsToCanvas(aiFields);
+            addFieldsToCanvas(signatureFields);
           }
-        }, 500); // Increased delay to ensure page loads
+        }, 500);
       } else {
         // If we're already on the right page, render immediately
         setTimeout(() => {
-          console.log('🔄 Re-rendering fields for current page...');
+          console.log('🔄 Re-rendering signature overlays for current page...');
           if (canvas) {
-            addFieldsToCanvas(aiFields);
+            addFieldsToCanvas(signatureFields);
           }
         }, 100);
       }
@@ -604,19 +582,29 @@ const DocumentEditor: React.FC = () => {
         // Add label text
         let labelText;
         if (field.type === 'SIGNATURE') {
-          // For signature fields, create a more prominent label
+          // For signature fields, create a prominent "CLICK TO SIGN" overlay
           labelText = new fabric.Text(field.signed ? `✓ SIGNED` : `🖊️ CLICK TO SIGN`, {
-            left: x + 10,
-            top: y + (field.height / 2) - 10,
-            fontSize: 16,
-            fill: field.signed ? '#4caf50' : '#000',
+            left: x + (field.width / 2),
+            top: y + (field.height / 2),
+            fontSize: 18,
+            fill: field.signed ? '#4caf50' : '#fff',
             fontWeight: 'bold',
             selectable: false,
             evented: true,
             hoverCursor: 'pointer',
             moveCursor: 'pointer',
-            backgroundColor: field.signed ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 255, 0, 0.8)',
-            padding: 5,
+            backgroundColor: field.signed ? 'rgba(76, 175, 80, 0.9)' : 'rgba(255, 152, 0, 0.95)',
+            padding: 10,
+            textAlign: 'center',
+            originX: 'center',
+            originY: 'center',
+            borderRadius: 8,
+            shadow: new fabric.Shadow({
+              color: 'rgba(0, 0, 0, 0.3)',
+              blur: 5,
+              offsetX: 2,
+              offsetY: 2
+            })
           });
           
           // Add click handler to label text for signature fields
@@ -661,23 +649,23 @@ const DocumentEditor: React.FC = () => {
         
         // Add click handler for signature fields
         if (field.type === 'SIGNATURE') {
-          // Make signature fields highly visible and clickable
+          // Make signature fields highly visible as overlay buttons
           fabricObject.set({
-            fill: field.signed ? '#4caf5080' : '#ffc107c0', // More opaque
+            fill: field.signed ? 'rgba(76, 175, 80, 0.8)' : 'rgba(255, 152, 0, 0.9)',
             stroke: field.signed ? '#4caf50' : '#ff9800',
-            strokeWidth: field.signed ? 4 : 10, // Much thicker border
-            strokeDashArray: field.signed ? [] : [20, 10], // Larger dashes
-            selectable: true, // Allow selection to show it's interactive
+            strokeWidth: field.signed ? 3 : 6,
+            strokeDashArray: [],
+            selectable: false, // Prevent dragging
             evented: true,
             hoverCursor: 'pointer',
             moveCursor: 'pointer',
-            rx: 8, // More rounded corners
-            ry: 8,
+            rx: 12, // Rounded corners for button-like appearance
+            ry: 12,
             shadow: new fabric.Shadow({
-              color: field.signed ? '#4caf50' : '#ff9800',
-              blur: 10,
-              offsetX: 2,
-              offsetY: 2
+              color: 'rgba(0, 0, 0, 0.4)',
+              blur: 8,
+              offsetX: 3,
+              offsetY: 3
             })
           });
 

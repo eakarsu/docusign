@@ -180,15 +180,16 @@ Print Name: _________________________`;
     console.log('🤖 AI detect-fields route called for document:', req.params.documentId);
     console.log('🤖 Document text length:', documentText.length);
     
-    const fields = await AIService.detectFields(documentText);
+    const overlays = await AIService.detectSignatureOverlays(documentText);
     
-    console.log('🤖 AI service returned fields:', fields);
-    console.log('🤖 Fields count:', fields.length);
+    console.log('🤖 AI service returned signature overlays:', overlays);
+    console.log('🤖 Overlays count:', overlays.length);
     
     return res.json({ 
       success: true,
-      data: fields,
-      fields: fields // Include both formats for compatibility
+      data: overlays,
+      overlays: overlays,
+      fields: overlays // Include for compatibility
     });
   } catch (error) {
     console.error('❌ AI detect-fields error:', error);
