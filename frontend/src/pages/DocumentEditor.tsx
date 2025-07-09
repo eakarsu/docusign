@@ -177,13 +177,19 @@ const DocumentEditor: React.FC = () => {
         // Don't auto-navigate, let user see fields are created
         console.log('📄 Default fields created for page 2');
         
-        // Just re-render current page
+        // Navigate to page 2 where the default fields are located
+        if (currentPage === 1) {
+          console.log('🔄 Auto-navigating to page 2 where default fields are located...');
+          setCurrentPage(2);
+        }
+      
+        // Re-render fields after a short delay
         setTimeout(() => {
           console.log('🔄 Re-rendering default fields...');
           if (canvas) {
             addFieldsToCanvas(defaultFields);
           }
-        }, 100);
+        }, 200);
         return;
       }
       
@@ -250,13 +256,24 @@ const DocumentEditor: React.FC = () => {
         }, {} as Record<number, number>)
       );
       
-      // Just re-render current page
+      // Navigate to page 2 where most signature fields are located
+      const fieldsOnPage2 = aiFields.filter(f => f.page === 2).length;
+      const fieldsOnPage1 = aiFields.filter(f => f.page === 1).length;
+      
+      console.log(`📄 Fields distribution - Page 1: ${fieldsOnPage1}, Page 2: ${fieldsOnPage2}`);
+      
+      if (fieldsOnPage2 > fieldsOnPage1 && currentPage === 1) {
+        console.log('🔄 Auto-navigating to page 2 where most fields are located...');
+        setCurrentPage(2);
+      }
+      
+      // Re-render fields after a short delay
       setTimeout(() => {
         console.log('🔄 Re-rendering fields for current page...');
         if (canvas) {
           addFieldsToCanvas(aiFields);
         }
-      }, 100);
+      }, 200);
     },
     onError: (error) => {
       console.error('❌ AI field detection failed:', error);
@@ -291,13 +308,19 @@ const DocumentEditor: React.FC = () => {
       setFields(fallbackFields);
       console.log('📄 Fallback fields created for page 2');
       
-      // Just re-render current page
+      // Navigate to page 2 where the fallback fields are located
+      if (currentPage === 1) {
+        console.log('🔄 Auto-navigating to page 2 where fallback fields are located...');
+        setCurrentPage(2);
+      }
+      
+      // Re-render fields after a short delay
       setTimeout(() => {
         console.log('🔄 Re-rendering fallback fields...');
         if (canvas) {
           addFieldsToCanvas(fallbackFields);
         }
-      }, 100);
+      }, 200);
     },
   });
 

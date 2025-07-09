@@ -135,17 +135,17 @@ export class AIService {
   static async detectFields(documentText: string) {
     console.log('🤖 AI detectFields called with text length:', documentText.length);
     
-    // Detect all signature places with realistic positioning for a 2-page document
+    // Detect signature places with better distribution - some on page 1, most on page 2
     const comprehensiveFields = [
-      // Page 1 fields - Initial signatures (positioned near bottom of page 1)
+      // Page 1 fields - Initial signatures and basic info (positioned near bottom of page 1)
       { 
         type: 'TEXT', 
         label: 'Client Name', 
         required: true, 
         section: 'individual',
         suggestedPage: 1,
-        x: 150,
-        y: 100,
+        x: 200,
+        y: 150,
         width: 200,
         height: 25
       },
@@ -155,8 +155,8 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 1,
-        x: 150,
-        y: 60,
+        x: 200,
+        y: 110,
         width: 200,
         height: 25
       },
@@ -166,21 +166,10 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 1,
-        x: 150,
-        y: 120,
+        x: 200,
+        y: 70,
         width: 150,
         height: 40
-      },
-      { 
-        type: 'DATE', 
-        label: 'Client Initial Date', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 1,
-        x: 400,
-        y: 120,
-        width: 100,
-        height: 25
       },
       { 
         type: 'SIGNATURE', 
@@ -188,21 +177,10 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 1,
-        x: 150,
-        y: 80,
+        x: 200,
+        y: 30,
         width: 150,
         height: 40
-      },
-      { 
-        type: 'DATE', 
-        label: 'Provider Initial Date', 
-        required: true, 
-        section: 'individual',
-        suggestedPage: 1,
-        x: 400,
-        y: 80,
-        width: 100,
-        height: 25
       },
       
       // Page 2 fields - Final signatures (positioned in signature section of page 2)
@@ -212,8 +190,8 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 2,
-        x: 150,
-        y: 300,
+        x: 200,
+        y: 350,
         width: 200,
         height: 50
       },
@@ -223,8 +201,8 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 2,
-        x: 400,
-        y: 300,
+        x: 420,
+        y: 350,
         width: 100,
         height: 25
       },
@@ -234,8 +212,8 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 2,
-        x: 150,
-        y: 270,
+        x: 200,
+        y: 320,
         width: 200,
         height: 25
       },
@@ -245,8 +223,8 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 2,
-        x: 150,
-        y: 200,
+        x: 200,
+        y: 250,
         width: 200,
         height: 50
       },
@@ -256,8 +234,8 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 2,
-        x: 400,
-        y: 200,
+        x: 420,
+        y: 250,
         width: 100,
         height: 25
       },
@@ -267,8 +245,30 @@ export class AIService {
         required: true, 
         section: 'individual',
         suggestedPage: 2,
-        x: 150,
-        y: 170,
+        x: 200,
+        y: 220,
+        width: 200,
+        height: 25
+      },
+      { 
+        type: 'SIGNATURE', 
+        label: 'Witness Signature', 
+        required: false, 
+        section: 'witness',
+        suggestedPage: 2,
+        x: 200,
+        y: 150,
+        width: 200,
+        height: 50
+      },
+      { 
+        type: 'TEXT', 
+        label: 'Witness Name', 
+        required: false, 
+        section: 'witness',
+        suggestedPage: 2,
+        x: 200,
+        y: 120,
         width: 200,
         height: 25
       },
