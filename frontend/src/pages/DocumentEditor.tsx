@@ -119,8 +119,8 @@ const DocumentEditor: React.FC = () => {
   useEffect(() => {
     if (canvasRef.current && !canvas) {
       const fabricCanvas = new fabric.Canvas(canvasRef.current, {
-        width: 612, // Standard PDF width
-        height: 792, // Standard PDF height
+        width: 800, // Will be updated when PDF loads
+        height: 1000, // Will be updated when PDF loads
         selection: true,
         backgroundColor: 'transparent',
       });
@@ -141,9 +141,14 @@ const DocumentEditor: React.FC = () => {
   useEffect(() => {
     if (document?.data?.fields) {
       setFields(document.data.fields);
-      addFieldsToCanvas(document.data.fields);
     }
-  }, [document, canvas]);
+  }, [document]);
+
+  useEffect(() => {
+    if (canvas && fields.length > 0) {
+      addFieldsToCanvas(fields);
+    }
+  }, [canvas, fields, currentPage]);
 
   const handleFieldModified = (e: fabric.IEvent) => {
     const obj = e.target;
@@ -174,59 +179,70 @@ const DocumentEditor: React.FC = () => {
   const addFieldsToCanvas = (fieldsToAdd: DocumentField[]) => {
     if (!canvas) return;
 
+    // Clear existing objects first
+    canvas.clear();
+
     fieldsToAdd.forEach(field => {
+      // Only show fields for current page
+      if (field.page !== currentPage) return;
+      
       let fabricObject;
+      let fieldColor;
+      let fieldLabel;
       
       switch (field.type) {
         case 'SIGNATURE':
-          fabricObject = new fabric.Rect({
-            left: field.x,
-            top: field.y,
-            width: field.width,
-            height: field.height,
-            fill: 'rgba(255, 193, 7, 0.3)',
-            stroke: '#ffc107',
-            strokeWidth: 2,
-            strokeDashArray: [5, 5],
-          });
+          fieldColor = '#ffc107';
+          fieldLabel = 'SIGNATURE';
           break;
         case 'TEXT':
-          fabricObject = new fabric.Rect({
-            left: field.x,
-            top: field.y,
-            width: field.width,
-            height: field.height,
-            fill: 'rgba(33, 150, 243, 0.3)',
-            stroke: '#2196f3',
-            strokeWidth: 2,
-          });
+          fieldColor = '#2196f3';
+          fieldLabel = 'TEXT';
           break;
         case 'DATE':
-          fabricObject = new fabric.Rect({
-            left: field.x,
-            top: field.y,
-            width: field.width,
-            height: field.height,
-            fill: 'rgba(76, 175, 80, 0.3)',
-            stroke: '#4caf50',
-            strokeWidth: 2,
-          });
+          fieldColor = '#4caf50';
+          fieldLabel = 'DATE';
+          break;
+        case 'CHECKBOX':
+          fieldColor = '#9c27b0';
+          fieldLabel = 'CHECKBOX';
           break;
         default:
-          fabricObject = new fabric.Rect({
-            left: field.x,
-            top: field.y,
-            width: field.width,
-            height: field.height,
-            fill: 'rgba(156, 39, 176, 0.3)',
-            stroke: '#9c27b0',
-            strokeWidth: 2,
-          });
+          fieldColor = '#666';
+          fieldLabel = field.type;
       }
+
+      // Create field rectangle
+      fabricObject = new fabric.Rect({
+        left: field.x,
+        top: field.y,
+        width: field.width,
+        height: field.height,
+        fill: `${fieldColor}30`, // 30% opacity
+        stroke: fieldColor,
+        strokeWidth: 2,
+        strokeDashArray: field.type === 'SIGNATURE' ? [5, 5] : [],
+        cornerColor: fieldColor,
+        cornerSize: 8,
+        transparentCorners: false,
+        hasRotatingPoint: false,
+      });
+
+      // Add label text
+      const labelText = new fabric.Text(fieldLabel, {
+        left: field.x + 5,
+        top: field.y + 5,
+        fontSize: 12,
+        fill: fieldColor,
+        fontWeight: 'bold',
+        selectable: false,
+        evented: false,
+      });
 
       if (fabricObject) {
         fabricObject.data = { fieldId: field.id, fieldType: field.type };
         canvas.add(fabricObject);
+        canvas.add(labelText);
       }
     });
     
@@ -234,12 +250,19 @@ const DocumentEditor: React.FC = () => {
   };
 
   const addField = (type: DocumentField['type']) => {
+    if (!canvas) return;
+    
+    const canvasCenter = {
+      x: canvas.getWidth() / 2,
+      y: canvas.getHeight() / 2
+    };
+    
     const newField: DocumentField = {
       id: `field-${Date.now()}`,
       type,
       label: `${type} Field`,
-      x: 100,
-      y: 100,
+      x: canvasCenter.x - (type === 'SIGNATURE' ? 100 : 75), // Center the field
+      y: canvasCenter.y - (type === 'SIGNATURE' ? 30 : 15),
       width: type === 'SIGNATURE' ? 200 : 150,
       height: type === 'SIGNATURE' ? 60 : 30,
       page: currentPage,
@@ -409,13 +432,38 @@ const DocumentEditor: React.FC = () => {
             <ZoomIn />
           </IconButton>
           
-          <Typography sx={{ ml: 'auto' }}>
-            Page {currentPage} of {numPages}
-          </Typography>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              size="small"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(currentPage - 1)}
+            >
+              Previous
+            </Button>
+            <Typography>
+              Page {currentPage} of {numPages}
+            </Typography>
+            <Button
+              size="small"
+              disabled={currentPage >= numPages}
+              onClick={() => setCurrentPage(currentPage + 1)}
+            >
+              Next
+            </Button>
+          </Box>
         </Toolbar>
 
-        <Box sx={{ position: 'relative', overflow: 'auto', height: 'calc(100vh - 64px)' }}>
-          <div style={{ position: 'relative', display: 'inline-block' }}>
+        <Box sx={{ position: 'relative', overflow: 'auto', height: 'calc(100vh - 64px)', p: 2 }}>
+          <div 
+            id="pdf-container"
+            style={{ 
+              position: 'relative', 
+              display: 'inline-block',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              overflow: 'hidden'
+            }}
+          >
             <Document
               file={document.data.fileUrl}
               onLoadSuccess={({ numPages }) => setNumPages(numPages)}
@@ -426,11 +474,22 @@ const DocumentEditor: React.FC = () => {
                 scale={scale}
                 loading={<Typography>Loading page...</Typography>}
                 onLoadSuccess={(page) => {
-                  // Update canvas size to match PDF page
+                  // Update canvas size to match PDF page exactly
                   if (canvas) {
-                    canvas.setWidth(page.width);
-                    canvas.setHeight(page.height);
+                    const pdfWidth = page.width;
+                    const pdfHeight = page.height;
+                    
+                    canvas.setWidth(pdfWidth);
+                    canvas.setHeight(pdfHeight);
+                    canvas.calcOffset();
                     canvas.renderAll();
+                    
+                    // Update canvas element size
+                    const canvasElement = canvasRef.current;
+                    if (canvasElement) {
+                      canvasElement.style.width = `${pdfWidth}px`;
+                      canvasElement.style.height = `${pdfHeight}px`;
+                    }
                   }
                 }}
               />
@@ -445,6 +504,7 @@ const DocumentEditor: React.FC = () => {
                 left: 0,
                 pointerEvents: 'auto',
                 zIndex: 10,
+                cursor: selectedTool ? 'crosshair' : 'default',
               }}
             />
           </div>
