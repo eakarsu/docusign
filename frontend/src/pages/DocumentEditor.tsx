@@ -621,7 +621,6 @@ const DocumentEditor: React.FC = () => {
             fill: '#000',
             backgroundColor: field.signed ? 'rgba(76, 175, 80, 0.9)' : 'rgba(255, 193, 7, 0.9)',
             padding: 8,
-            cornerStyle: 'round',
             borderColor: field.signed ? '#4caf50' : '#ff9800',
             stroke: field.signed ? '#4caf50' : '#ff9800',
             strokeWidth: 2
