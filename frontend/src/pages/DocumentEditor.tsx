@@ -343,9 +343,22 @@ const DocumentEditor: React.FC = () => {
       if (canvas) {
         console.log('🧹 Disposing canvas...');
         try {
+          // Remove event listeners first
+          canvas.off('object:modified');
+          canvas.off('object:removed');
+          
+          // Clear all objects before disposing
+          canvas.clear();
+          
+          // Safely dispose the canvas
           canvas.dispose();
+          
+          // Clear the canvas state
+          setCanvas(null);
         } catch (error) {
           console.error('Error disposing canvas:', error);
+          // Force clear the canvas state even if disposal fails
+          setCanvas(null);
         }
       }
     };
