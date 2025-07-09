@@ -105,14 +105,189 @@ const DocumentEditor: React.FC = () => {
   });
 
   const detectFieldsMutation = useMutation({
-    mutationFn: () => aiAPI.detectFields(id!),
-    onSuccess: (data) => {
-      console.log('🤖 AI API Response:', data);
-      console.log('🤖 AI detected overlays raw:', data.data);
+    mutationFn: async () => {
+      // First, capture the current PDF page as an image
+      const pdfPageImage = await capturePDFPageAsImage(currentPage);
       
-      // Handle signature overlay response
-      const overlaysArray = data.data?.overlays || data.data?.data || data.data || [];
-      console.log('🤖 Signature overlays array:', overlaysArray);
+      if (!pdfPageImage) {
+        throw new Error('Failed to capture PDF page image');
+      }
+      
+      // Send the image to AI for overlay generation
+      return aiAPI.generateOverlay(id!, currentPage, pdfPageImage);
+    },
+    onSuccess: (data) => {
+      console.log('🤖 AI Overlay Generation Response:', data);
+      console.log('🤖 AI generated overlay data:', data.data);
+      
+      const result = data.data;
+      if (result.overlayImage) {
+        // Display the overlay image on top of the PDF
+        displayOverlayImage(result.overlayImage, result.signatureFields);
+      } else {
+        // Fallback to manual field placement
+        const signatureFields = result.signatureFields || [];
+        console.log('🤖 Using signature fields from AI:', signatureFields);
+        setFields(signatureFields);
+        
+        // Re-render fields
+        setTimeout(() => {
+          if (canvas) {
+            addFieldsToCanvas(signatureFields);
+          }
+        }, 100);
+      }
+    },
+    onError: (error) => {
+      console.error('❌ AI overlay generation failed:', error);
+      // Create fallback fields
+      createFallbackFields();
+    }
+  });
+
+  const capturePDFPageAsImage = async (pageNumber: number): Promise<string> => {
+    return new Promise((resolve) => {
+      // Find the PDF page canvas element
+      const pdfPageElement = document.querySelector('.react-pdf__Page__canvas') as HTMLCanvasElement;
+      
+      if (pdfPageElement) {
+        try {
+          // Convert canvas to base64 image
+          const imageData = pdfPageElement.toDataURL('image/png');
+          const base64Data = imageData.split(',')[1]; // Remove data:image/png;base64, prefix
+          console.log('📸 Captured PDF page image (length):', base64Data.length);
+          resolve(base64Data);
+        } catch (error) {
+          console.error('Error capturing PDF page:', error);
+          resolve('');
+        }
+      } else {
+        console.error('Could not find PDF page canvas element');
+        resolve(''); // Return empty string as fallback
+      }
+    });
+  };
+
+  const displayOverlayImage = (overlayImageBase64: string, signatureFields: any[]) => {
+    console.log('🎨 Displaying overlay image with signature fields:', signatureFields);
+    
+    if (!canvas) {
+      console.error('Canvas not available for overlay display');
+      return;
+    }
+    
+    // Create an image element for the overlay
+    const overlayImg = new Image();
+    overlayImg.onload = () => {
+      try {
+        // Clear existing canvas
+        canvas.clear();
+        
+        // Add overlay image to canvas
+        const fabricImage = new fabric.Image(overlayImg, {
+          left: 0,
+          top: 0,
+          selectable: false,
+          evented: false,
+          opacity: 0.9, // Slightly transparent so PDF shows through
+        });
+        
+        canvas.add(fabricImage);
+        
+        // Add invisible click areas for signature fields
+        signatureFields.forEach((field, index) => {
+          const clickArea = new fabric.Rect({
+            left: field.x,
+            top: field.y,
+            width: field.width,
+            height: field.height,
+            fill: 'transparent',
+            stroke: 'transparent',
+            selectable: false,
+            evented: true,
+            hoverCursor: 'pointer',
+          });
+          
+          clickArea.on('mousedown', () => {
+            console.log('🖊️ Overlay signature area clicked:', field.label);
+            setSelectedFieldForSigning(field);
+            setSignatureDialogOpen(true);
+          });
+          
+          canvas.add(clickArea);
+        });
+        
+        canvas.renderAll();
+        setFields(signatureFields);
+        
+        console.log('✅ Overlay image displayed successfully');
+      } catch (error) {
+        console.error('Error displaying overlay image:', error);
+        // Fallback to regular field rendering
+        setFields(signatureFields);
+        setTimeout(() => {
+          if (canvas) {
+            addFieldsToCanvas(signatureFields);
+          }
+        }, 100);
+      }
+    };
+    
+    overlayImg.onerror = (error) => {
+      console.error('Error loading overlay image:', error);
+      // Fallback to regular field rendering
+      setFields(signatureFields);
+      setTimeout(() => {
+        if (canvas) {
+          addFieldsToCanvas(signatureFields);
+        }
+      }, 100);
+    };
+    
+    overlayImg.src = overlayImageBase64;
+  };
+
+  const createFallbackFields = () => {
+    console.log('🔄 Creating fallback signature fields');
+    
+    // Create fallback fields on current page
+    const fallbackFields: DocumentField[] = [
+      {
+        id: `fallback-${Date.now()}-0`,
+        type: 'SIGNATURE' as const,
+        label: 'Primary Signature',
+        x: 100,
+        y: 200,
+        width: 250,
+        height: 60,
+        page: currentPage,
+        required: true,
+      },
+      {
+        id: `fallback-${Date.now()}-1`,
+        type: 'DATE' as const,
+        label: 'Date',
+        x: 400,
+        y: 200,
+        width: 150,
+        height: 25,
+        page: currentPage,
+        required: true,
+      },
+    ];
+    
+    console.log('🔄 Using fallback fields:', fallbackFields);
+    setFields(fallbackFields);
+    
+    // Re-render fields
+    setTimeout(() => {
+      if (canvas) {
+        addFieldsToCanvas(fallbackFields);
+      }
+    }, 100);
+  };
+
+  if (!Array.isArray(overlaysArray) || overlaysArray.length === 0) {
       
       if (!Array.isArray(overlaysArray) || overlaysArray.length === 0) {
         console.log('⚠️ No signature overlays detected by AI, creating default overlays');
@@ -900,14 +1075,14 @@ const DocumentEditor: React.FC = () => {
             variant="outlined"
             startIcon={<AIIcon />}
             onClick={() => {
-              console.log('🤖 AI Detect Fields button clicked');
+              console.log('🤖 AI Generate Overlay button clicked for page:', currentPage);
               detectFieldsMutation.mutate();
             }}
             disabled={detectFieldsMutation.isPending}
             sx={{ mt: 2, mb: 2 }}
-            title="Detect signature fields using AI"
+            title="Generate signature overlay using AI vision"
           >
-            {detectFieldsMutation.isPending ? 'Detecting...' : 'AI Detect Fields'}
+            {detectFieldsMutation.isPending ? 'Generating Overlay...' : 'AI Generate Overlay'}
           </Button>
           {detectFieldsMutation.error && (
             <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
