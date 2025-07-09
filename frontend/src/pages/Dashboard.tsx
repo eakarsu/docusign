@@ -27,6 +27,7 @@ import {
   Alert,
   Tooltip,
   Badge,
+  Fab,
 } from '@mui/material';
 import {
   Description as DocumentIcon,
@@ -210,7 +211,7 @@ const Dashboard: React.FC = () => {
                   variant="contained"
                   size="small"
                   startIcon={<AddIcon />}
-                  onClick={() => navigate('/documents')}
+                  onClick={() => setQuickActionDialog(true)}
                 >
                   New
                 </Button>
@@ -400,9 +401,12 @@ const Dashboard: React.FC = () => {
                   setQuickActionDialog(false);
                   navigate('/documents');
                 }}
-                sx={{ p: 2, height: 80 }}
+                sx={{ p: 2, height: 80, flexDirection: 'column' }}
               >
-                Upload Document
+                <Typography variant="subtitle2">Upload Document</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Upload PDF, DOC, or DOCX
+                </Typography>
               </Button>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -414,9 +418,27 @@ const Dashboard: React.FC = () => {
                   setQuickActionDialog(false);
                   navigate('/templates');
                 }}
-                sx={{ p: 2, height: 80 }}
+                sx={{ p: 2, height: 80, flexDirection: 'column' }}
               >
-                Create Template
+                <Typography variant="subtitle2">Create Template</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Build reusable document
+                </Typography>
+              </Button>
+            </Grid>
+            <Grid item xs={12}>
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={<DocumentIcon />}
+                onClick={() => {
+                  setQuickActionDialog(false);
+                  // Create a new document and go directly to editor
+                  navigate('/documents/new/edit');
+                }}
+                sx={{ p: 2, height: 60 }}
+              >
+                <Typography variant="subtitle1">Start Document Editor</Typography>
               </Button>
             </Grid>
           </Grid>
@@ -425,6 +447,20 @@ const Dashboard: React.FC = () => {
           <Button onClick={() => setQuickActionDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Floating Action Button for Quick Document Creation */}
+      <Fab
+        color="primary"
+        aria-label="create document"
+        sx={{
+          position: 'fixed',
+          bottom: 16,
+          right: 16,
+        }}
+        onClick={() => navigate('/documents/new/edit')}
+      >
+        <DocumentIcon />
+      </Fab>
     </Box>
   );
 };

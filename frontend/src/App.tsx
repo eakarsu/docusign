@@ -62,6 +62,7 @@ const AppRoutes: React.FC = () => {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="documents" element={<Documents />} />
+        <Route path="documents/new/edit" element={<DocumentEditor />} />
         <Route path="documents/:id/edit" element={<DocumentEditor />} />
         <Route path="templates" element={<Templates />} />
         <Route path="ai-assistant" element={<AIAssistant />} />
