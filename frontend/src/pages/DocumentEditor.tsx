@@ -103,13 +103,8 @@ const DocumentEditor: React.FC = () => {
       console.log('AI detected fields:', data.data.fields);
       
       const aiFields = data.data.fields.map((field: any, index: number) => {
-        // Calculate position based on field index and type
-        const fieldsPerColumn = 4;
-        const columnIndex = Math.floor(index / fieldsPerColumn);
-        const rowIndex = index % fieldsPerColumn;
-        
-        let x = 50 + (columnIndex * 280); // Multiple columns
-        let y = 100 + (rowIndex * 80); // Spread vertically
+        let x = 50;
+        let y = 100;
         let width = 200;
         let height = 30;
         let page = currentPage;
@@ -129,24 +124,49 @@ const DocumentEditor: React.FC = () => {
           height = 40;
         }
         
-        // Position based on section for better organization
-        if (field.section === 'witness') {
-          x = 50; // Left side for witness fields
-        } else if (field.section === 'company') {
-          x = 350; // Right side for company fields
-          // Company sections might be on different pages
-          if (index >= 4) {
-            page = Math.min(numPages, currentPage + 1);
+        // Position fields based on their section and type
+        if (field.section === 'individual') {
+          // Individual section - left side
+          x = 50;
+          if (field.type === 'SIGNATURE') {
+            y = 200 + (index * 20); // Main signature
+          } else if (field.label.includes('Witness')) {
+            y = 280 + (index * 20); // Witness fields below
+          } else {
+            y = 360 + (index * 20); // Other fields
           }
-        } else if (field.section === 'individual') {
-          x = 200; // Center for individual fields
+        } else if (field.section === 'company') {
+          // Company section - right side
+          x = 350;
+          if (field.type === 'SIGNATURE') {
+            y = 200 + (index * 20); // Director signature
+          } else if (field.label.includes('Witness')) {
+            y = 280 + (index * 20); // Company witness fields
+          } else {
+            y = 360 + (index * 20); // Other company fields
+          }
+        } else if (field.section === 'witness') {
+          // Witness fields - spread between individual and company
+          if (field.label.includes('Individual')) {
+            x = 50; // Left side for individual witness
+            y = 280 + (index * 15);
+          } else if (field.label.includes('Company')) {
+            x = 350; // Right side for company witness
+            y = 280 + (index * 15);
+          } else {
+            x = 200; // Center for general witness fields
+            y = 280 + (index * 15);
+          }
         }
         
-        // Ensure fields stay within reasonable bounds
+        // Ensure fields don't overlap and stay within bounds
+        const fieldSpacing = field.type === 'SIGNATURE' ? 80 : 40;
+        y = y + (index % 5) * fieldSpacing;
+        
+        // Keep within canvas bounds
         if (x + width > 600) x = 600 - width;
         if (y + height > 700) {
-          y = 100 + ((index % 3) * 80);
-          page = Math.min(numPages, currentPage + 1);
+          y = 100 + ((index % 8) * 60);
         }
         
         return {
@@ -157,7 +177,7 @@ const DocumentEditor: React.FC = () => {
           y,
           width,
           height,
-          page,
+          page: field.suggestedPage || page,
           required: field.required || false,
         };
       });
