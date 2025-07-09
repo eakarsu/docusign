@@ -589,12 +589,31 @@ const DocumentEditor: React.FC = () => {
         const labelText = new fabric.Text(`${field.label}`, {
           left: x + 5,
           top: y + 5,
-          fontSize: 12, // Larger font
+          fontSize: 12,
           fill: fieldColor,
           fontWeight: 'bold',
           selectable: false,
           evented: false,
         });
+        
+        // Add click handler to label text for signature fields too
+        if (field.type === 'SIGNATURE') {
+          labelText.on('mousedown', (e) => {
+            console.log('🖊️ Signature label clicked:', field.label);
+            if (e.e) {
+              e.e.preventDefault();
+              e.e.stopPropagation();
+            }
+            setSelectedFieldForSigning(field);
+            setSignatureDialogOpen(true);
+          });
+          
+          labelText.set({
+            hoverCursor: 'pointer',
+            moveCursor: 'pointer',
+            evented: true,
+          });
+        }
 
         console.log('✅ Created fabric text');
 
@@ -605,19 +624,37 @@ const DocumentEditor: React.FC = () => {
         if (field.type === 'SIGNATURE') {
           fabricObject.on('mousedown', (e) => {
             console.log('🖊️ Signature field clicked:', field.label);
-            e.e.preventDefault();
-            e.e.stopPropagation();
+            if (e.e) {
+              e.e.preventDefault();
+              e.e.stopPropagation();
+            }
             setSelectedFieldForSigning(field);
             setSignatureDialogOpen(true);
           });
           
+          fabricObject.on('mouseover', () => {
+            fabricObject.set({
+              fill: field.signed ? '#4caf5080' : '#ffc107a0',
+              stroke: field.signed ? '#4caf50' : '#ff9800',
+            });
+            canvas.renderAll();
+          });
+          
+          fabricObject.on('mouseout', () => {
+            fabricObject.set({
+              fill: field.signed ? '#4caf5060' : '#ffc10780',
+              stroke: field.signed ? '#4caf50' : '#ffc107',
+            });
+            canvas.renderAll();
+          });
+          
           // Make signature fields more visually distinct and clickable
           fabricObject.set({
-            fill: field.signed ? '#4caf5060' : `${fieldColor}80`,
-            stroke: field.signed ? '#4caf50' : fieldColor,
-            strokeWidth: field.signed ? 3 : 5,
-            strokeDashArray: field.signed ? [] : [10, 5],
-            selectable: true,
+            fill: field.signed ? '#4caf5060' : '#ffc10780',
+            stroke: field.signed ? '#4caf50' : '#ffc107',
+            strokeWidth: field.signed ? 3 : 6,
+            strokeDashArray: field.signed ? [] : [12, 6],
+            selectable: false, // Prevent dragging, only allow clicking
             evented: true,
             hoverCursor: 'pointer',
             moveCursor: 'pointer',
@@ -626,14 +663,18 @@ const DocumentEditor: React.FC = () => {
           // Update label for signed fields
           if (field.signed) {
             labelText.set({
-              text: `✓ ${field.label} - SIGNED`,
-              fill: '#4caf50'
+              text: `✓ SIGNED`,
+              fill: '#4caf50',
+              fontSize: 14,
+              fontWeight: 'bold'
             });
           } else {
             labelText.set({
-              text: `📝 CLICK TO SIGN: ${field.label}`,
-              fill: fieldColor,
-              fontWeight: 'bold'
+              text: `🖊️ CLICK TO SIGN`,
+              fill: '#000',
+              fontSize: 14,
+              fontWeight: 'bold',
+              backgroundColor: 'rgba(255, 255, 255, 0.8)'
             });
           }
         }
@@ -920,7 +961,7 @@ const DocumentEditor: React.FC = () => {
 
           <Box sx={{ mt: 3 }}>
             <Typography variant="subtitle2" gutterBottom>
-              All Fields ({fields.length})
+              All Fields ({fields.length}) - Signatures: {fields.filter(f => f.type === 'SIGNATURE').length}
             </Typography>
             <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
               {fields.map((field: DocumentField, index: number) => (
