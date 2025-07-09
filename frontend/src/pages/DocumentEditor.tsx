@@ -119,9 +119,10 @@ const DocumentEditor: React.FC = () => {
   useEffect(() => {
     if (canvasRef.current && !canvas) {
       const fabricCanvas = new fabric.Canvas(canvasRef.current, {
-        width: 800,
-        height: 1000,
+        width: 612, // Standard PDF width
+        height: 792, // Standard PDF height
         selection: true,
+        backgroundColor: 'transparent',
       });
       
       fabricCanvas.on('object:modified', handleFieldModified);
@@ -346,10 +347,11 @@ const DocumentEditor: React.FC = () => {
             variant="outlined"
             startIcon={<AIIcon />}
             onClick={() => detectFieldsMutation.mutate()}
-            disabled={detectFieldsMutation.isPending}
+            disabled={true}
             sx={{ mt: 2, mb: 2 }}
+            title="AI field detection requires OpenAI API key configuration"
           >
-            AI Detect Fields
+            AI Detect Fields (Disabled)
           </Button>
 
           <Button
@@ -414,29 +416,39 @@ const DocumentEditor: React.FC = () => {
         </Toolbar>
 
         <Box sx={{ position: 'relative', overflow: 'auto', height: 'calc(100vh - 64px)' }}>
-          <Document
-            file={document.data.fileUrl}
-            onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-            loading={<Typography>Loading PDF...</Typography>}
-          >
-            <Page
-              pageNumber={currentPage}
-              scale={scale}
-              loading={<Typography>Loading page...</Typography>}
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <Document
+              file={document.data.fileUrl}
+              onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+              loading={<Typography>Loading PDF...</Typography>}
+            >
+              <Page
+                pageNumber={currentPage}
+                scale={scale}
+                loading={<Typography>Loading page...</Typography>}
+                onLoadSuccess={(page) => {
+                  // Update canvas size to match PDF page
+                  if (canvas) {
+                    canvas.setWidth(page.width);
+                    canvas.setHeight(page.height);
+                    canvas.renderAll();
+                  }
+                }}
+              />
+            </Document>
+            
+            {/* Canvas overlay for field placement */}
+            <canvas
+              ref={canvasRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                pointerEvents: 'auto',
+                zIndex: 10,
+              }}
             />
-          </Document>
-          
-          {/* Canvas overlay for field placement */}
-          <canvas
-            ref={canvasRef}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              pointerEvents: 'auto',
-              zIndex: 10,
-            }}
-          />
+          </div>
         </Box>
       </Box>
 
