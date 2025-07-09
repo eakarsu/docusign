@@ -156,7 +156,11 @@ export class AIService {
             "page": 1 or 2,
             "label": "descriptive name like 'Client Signature' or 'Witness Initial'",
             "type": "SIGNATURE" | "INITIAL",
-            "required": true/false
+            "required": true/false,
+            "x": estimated x coordinate (0-612 for standard PDF width),
+            "y": estimated y coordinate (0-792 for standard PDF height),
+            "width": suggested field width (typically 200-300 for signatures),
+            "height": suggested field height (typically 40-60 for signatures)
           }
         ]
         
@@ -167,6 +171,13 @@ export class AIService {
         - Any underscores that indicate signature placement
         - "Witness" signature areas
         - "Director" signature areas
+        
+        For coordinates, estimate based on typical document layout:
+        - Page 1 signatures usually appear near bottom (y: 100-200)
+        - Page 2 signatures spread throughout (y: 150-600)
+        - Left margin typically starts at x: 50-100
+        - Signature lines are usually 200-300 pixels wide
+        - Standard PDF page is 612x792 pixels
         
         Return only the JSON array, no other text.
       `;
@@ -215,7 +226,7 @@ export class AIService {
 
       console.log('🤖 Parsed signature locations:', signatureLocations);
       
-      // Convert to overlay format
+      // Convert to overlay format with coordinates
       const overlays = signatureLocations.map((location: any, index: number) => ({
         id: `overlay-${Date.now()}-${index}`,
         type: location.type || 'SIGNATURE',
@@ -223,7 +234,11 @@ export class AIService {
         page: location.page || 1,
         signatureText: location.signatureText || '',
         required: location.required !== false,
-        overlayType: 'CLICK_TO_SIGN'
+        overlayType: 'CLICK_TO_SIGN',
+        x: location.x || (50 + (index % 2) * 300), // Default positioning if AI doesn't provide
+        y: location.y || (150 + Math.floor(index / 2) * 100),
+        width: location.width || (location.type === 'SIGNATURE' ? 250 : 150),
+        height: location.height || (location.type === 'SIGNATURE' ? 60 : 40)
       }));
 
       console.log('🤖 Generated signature overlays:', overlays);
@@ -235,14 +250,14 @@ export class AIService {
       // Fallback to rule-based signature overlay detection
       const overlays = [];
       
-      // Look for signature patterns in the text
+      // Look for signature patterns in the text with estimated coordinates
       const signaturePatterns = [
-        { pattern: /Client Initial:.*?_+/gi, label: 'Client Initial', page: 1, type: 'INITIAL' },
-        { pattern: /Provider Initial:.*?_+/gi, label: 'Provider Initial', page: 1, type: 'INITIAL' },
-        { pattern: /Full Signature:.*?_+/gi, label: 'Client Final Signature', page: 2, type: 'SIGNATURE' },
-        { pattern: /Signature:.*?_+/gi, label: 'Signature', page: 2, type: 'SIGNATURE' },
-        { pattern: /Witness.*?Signature:.*?_+/gi, label: 'Witness Signature', page: 2, type: 'SIGNATURE' },
-        { pattern: /Director.*?Signature:.*?_+/gi, label: 'Director Signature', page: 2, type: 'SIGNATURE' }
+        { pattern: /Client Initial:.*?_+/gi, label: 'Client Initial', page: 1, type: 'INITIAL', x: 200, y: 120, width: 200, height: 40 },
+        { pattern: /Provider Initial:.*?_+/gi, label: 'Provider Initial', page: 1, type: 'INITIAL', x: 200, y: 80, width: 200, height: 40 },
+        { pattern: /Full Signature:.*?_+/gi, label: 'Client Final Signature', page: 2, type: 'SIGNATURE', x: 200, y: 350, width: 250, height: 60 },
+        { pattern: /Signature:.*?_+/gi, label: 'Signature', page: 2, type: 'SIGNATURE', x: 200, y: 250, width: 250, height: 60 },
+        { pattern: /Witness.*?Signature:.*?_+/gi, label: 'Witness Signature', page: 2, type: 'SIGNATURE', x: 200, y: 150, width: 250, height: 60 },
+        { pattern: /Director.*?Signature:.*?_+/gi, label: 'Director Signature', page: 2, type: 'SIGNATURE', x: 200, y: 400, width: 250, height: 60 }
       ];
       
       signaturePatterns.forEach((pattern, index) => {
@@ -256,13 +271,17 @@ export class AIService {
               page: pattern.page,
               signatureText: match.trim(),
               required: true,
-              overlayType: 'CLICK_TO_SIGN'
+              overlayType: 'CLICK_TO_SIGN',
+              x: pattern.x + (matchIndex * 50), // Offset multiple matches
+              y: pattern.y + (matchIndex * 70),
+              width: pattern.width,
+              height: pattern.height
             });
           });
         }
       });
       
-      // If no patterns found, create basic overlays
+      // If no patterns found, create basic overlays with coordinates
       if (overlays.length === 0) {
         overlays.push(
           {
@@ -272,7 +291,11 @@ export class AIService {
             page: 1,
             signatureText: 'Client Initial: _________________________',
             required: true,
-            overlayType: 'CLICK_TO_SIGN'
+            overlayType: 'CLICK_TO_SIGN',
+            x: 200,
+            y: 120,
+            width: 200,
+            height: 40
           },
           {
             id: 'fallback-overlay-2',
@@ -281,7 +304,11 @@ export class AIService {
             page: 1,
             signatureText: 'Provider Initial: _______________________',
             required: true,
-            overlayType: 'CLICK_TO_SIGN'
+            overlayType: 'CLICK_TO_SIGN',
+            x: 200,
+            y: 80,
+            width: 200,
+            height: 40
           },
           {
             id: 'fallback-overlay-3',
@@ -290,7 +317,11 @@ export class AIService {
             page: 2,
             signatureText: 'Full Signature: _________________________',
             required: true,
-            overlayType: 'CLICK_TO_SIGN'
+            overlayType: 'CLICK_TO_SIGN',
+            x: 200,
+            y: 350,
+            width: 250,
+            height: 60
           },
           {
             id: 'fallback-overlay-4',
@@ -299,7 +330,11 @@ export class AIService {
             page: 2,
             signatureText: 'Full Signature: _________________________',
             required: true,
-            overlayType: 'CLICK_TO_SIGN'
+            overlayType: 'CLICK_TO_SIGN',
+            x: 200,
+            y: 250,
+            width: 250,
+            height: 60
           },
           {
             id: 'fallback-overlay-5',
@@ -308,7 +343,11 @@ export class AIService {
             page: 2,
             signatureText: 'Signature: _________________________',
             required: false,
-            overlayType: 'CLICK_TO_SIGN'
+            overlayType: 'CLICK_TO_SIGN',
+            x: 200,
+            y: 150,
+            width: 250,
+            height: 60
           }
         );
       }
