@@ -136,197 +136,201 @@ export class AIService {
     console.log('🤖 AI detectFields called with text length:', documentText.length);
     console.log('🤖 Document text preview:', documentText.substring(0, 200));
     
-    // Analyze document content to determine field placement
-    const hasInitialSignatures = documentText.includes('INITIAL SIGNATURES') || documentText.includes('Client Initial') || documentText.includes('Provider Initial');
-    const hasFinalSignatures = documentText.includes('FINAL SIGNATURES') || documentText.includes('Full Signature') || documentText.includes('CLIENT:') || documentText.includes('SERVICE PROVIDER:');
-    const hasWitnessSection = documentText.includes('WITNESS') || documentText.includes('Witness');
-    
-    console.log('🤖 Document analysis:', {
-      hasInitialSignatures,
-      hasFinalSignatures,
-      hasWitnessSection
-    });
-    
-    const comprehensiveFields = [];
-    
-    // Page 1 fields - Based on document content analysis
-    if (hasInitialSignatures) {
-      comprehensiveFields.push(
-        { 
-          type: 'TEXT', 
-          label: 'Client Name', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 1,
-          x: 200,
-          y: 200,
-          width: 200,
-          height: 25
-        },
-        { 
-          type: 'TEXT', 
-          label: 'Provider Name', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 1,
-          x: 200,
-          y: 160,
-          width: 200,
-          height: 25
-        },
-        { 
-          type: 'SIGNATURE', 
-          label: 'Client Initial', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 1,
-          x: 200,
-          y: 120,
-          width: 150,
-          height: 40
-        },
-        { 
-          type: 'DATE', 
-          label: 'Client Initial Date', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 1,
-          x: 400,
-          y: 120,
-          width: 100,
-          height: 25
-        },
-        { 
-          type: 'SIGNATURE', 
-          label: 'Provider Initial', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 1,
-          x: 200,
-          y: 80,
-          width: 150,
-          height: 40
-        },
-        { 
-          type: 'DATE', 
-          label: 'Provider Initial Date', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 1,
-          x: 400,
-          y: 80,
-          width: 100,
-          height: 25
-        }
-      );
-    }
-    
-    // Page 2 fields - Based on document content analysis
-    if (hasFinalSignatures) {
-      comprehensiveFields.push(
-        { 
-          type: 'SIGNATURE', 
-          label: 'Client Final Signature', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 2,
-          x: 200,
-          y: 350,
-          width: 200,
-          height: 50
-        },
-        { 
-          type: 'DATE', 
-          label: 'Client Signature Date', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 2,
-          x: 420,
-          y: 350,
-          width: 100,
-          height: 25
-        },
-        { 
-          type: 'TEXT', 
-          label: 'Client Printed Name', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 2,
-          x: 200,
-          y: 320,
-          width: 200,
-          height: 25
-        },
-        { 
-          type: 'SIGNATURE', 
-          label: 'Provider Final Signature', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 2,
-          x: 200,
-          y: 250,
-          width: 200,
-          height: 50
-        },
-        { 
-          type: 'DATE', 
-          label: 'Provider Signature Date', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 2,
-          x: 420,
-          y: 250,
-          width: 100,
-          height: 25
-        },
-        { 
-          type: 'TEXT', 
-          label: 'Provider Printed Name', 
-          required: true, 
-          section: 'individual',
-          suggestedPage: 2,
-          x: 200,
-          y: 220,
-          width: 200,
-          height: 25
-        }
-      );
-    }
-    
-    // Witness fields if detected
-    if (hasWitnessSection) {
-      comprehensiveFields.push(
-        { 
-          type: 'SIGNATURE', 
-          label: 'Witness Signature', 
-          required: false, 
-          section: 'witness',
-          suggestedPage: 2,
-          x: 200,
-          y: 150,
-          width: 200,
-          height: 50
-        },
-        { 
-          type: 'TEXT', 
-          label: 'Witness Name', 
-          required: false, 
-          section: 'witness',
-          suggestedPage: 2,
-          x: 200,
-          y: 120,
-          width: 200,
-          height: 25
-        }
-      );
-    }
+    try {
+      // Use actual AI to detect signature fields
+      const prompt = `
+        Analyze this legal document and identify all signature fields, date fields, and text input fields.
+        
+        Document content:
+        ${documentText}
+        
+        Please return a JSON array of field objects with the following structure:
+        [
+          {
+            "type": "SIGNATURE" | "DATE" | "TEXT",
+            "label": "descriptive label",
+            "required": true/false,
+            "section": "individual" | "witness" | "general",
+            "suggestedPage": 1 or 2,
+            "x": estimated x position (0-600),
+            "y": estimated y position (0-800),
+            "width": field width,
+            "height": field height
+          }
+        ]
+        
+        Focus on finding:
+        - Signature lines (look for "Signature:", "Sign:", underscores, signature blocks)
+        - Date fields (look for "Date:", date lines)
+        - Name fields (look for "Name:", "Print Name:")
+        - Initial fields (look for "Initial:")
+        
+        Return only the JSON array, no other text.
+      `;
 
-    console.log('🤖 Returning fields based on document content analysis:', comprehensiveFields);
-    console.log('🤖 Fields by page:', comprehensiveFields.reduce((acc, field) => {
-      acc[field.suggestedPage] = (acc[field.suggestedPage] || 0) + 1;
-      return acc;
-    }, {} as Record<number, number>));
-    
-    return comprehensiveFields;
+      console.log('🤖 Making OpenRouter API call...');
+      
+      const response = await openai.chat.completions.create({
+        model: 'openai/gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert at analyzing legal documents and identifying signature fields. Return only valid JSON.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 2000
+      });
+
+      console.log('🤖 OpenRouter API response received');
+      
+      const aiResponse = response.choices[0]?.message?.content;
+      if (!aiResponse) {
+        throw new Error('No response from AI');
+      }
+
+      console.log('🤖 AI Response:', aiResponse);
+
+      // Parse the AI response
+      let aiFields;
+      try {
+        // Clean the response to extract JSON
+        const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+        const jsonString = jsonMatch ? jsonMatch[0] : aiResponse;
+        aiFields = JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error('🤖 Failed to parse AI response as JSON:', parseError);
+        throw new Error('Invalid AI response format');
+      }
+
+      if (!Array.isArray(aiFields)) {
+        throw new Error('AI response is not an array');
+      }
+
+      console.log('🤖 Parsed AI fields:', aiFields);
+      
+      // Validate and normalize the fields
+      const normalizedFields = aiFields.map((field: any, index: number) => ({
+        type: field.type || 'SIGNATURE',
+        label: field.label || `Field ${index + 1}`,
+        required: field.required !== false,
+        section: field.section || 'individual',
+        suggestedPage: field.suggestedPage || (field.type === 'SIGNATURE' ? 2 : 1),
+        x: Math.max(50, Math.min(field.x || 200, 500)),
+        y: Math.max(50, Math.min(field.y || 200, 700)),
+        width: field.width || (field.type === 'SIGNATURE' ? 200 : 150),
+        height: field.height || (field.type === 'SIGNATURE' ? 50 : 25)
+      }));
+
+      console.log('🤖 Normalized AI fields:', normalizedFields);
+      return normalizedFields;
+
+    } catch (error) {
+      console.error('🤖 AI field detection failed, using fallback:', error);
+      
+      // Fallback to rule-based detection if AI fails
+      const hasInitialSignatures = documentText.includes('INITIAL SIGNATURES') || documentText.includes('Client Initial') || documentText.includes('Provider Initial');
+      const hasFinalSignatures = documentText.includes('FINAL SIGNATURES') || documentText.includes('Full Signature') || documentText.includes('CLIENT:') || documentText.includes('SERVICE PROVIDER:');
+      const hasWitnessSection = documentText.includes('WITNESS') || documentText.includes('Witness');
+      
+      console.log('🤖 Fallback document analysis:', {
+        hasInitialSignatures,
+        hasFinalSignatures,
+        hasWitnessSection
+      });
+      
+      const fallbackFields = [];
+      
+      // Page 1 fields - Based on document content analysis
+      if (hasInitialSignatures) {
+        fallbackFields.push(
+          { 
+            type: 'TEXT', 
+            label: 'Client Name', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 1,
+            x: 200,
+            y: 200,
+            width: 200,
+            height: 25
+          },
+          { 
+            type: 'SIGNATURE', 
+            label: 'Client Initial', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 1,
+            x: 200,
+            y: 120,
+            width: 150,
+            height: 40
+          },
+          { 
+            type: 'SIGNATURE', 
+            label: 'Provider Initial', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 1,
+            x: 200,
+            y: 80,
+            width: 150,
+            height: 40
+          }
+        );
+      }
+      
+      // Page 2 fields - Based on document content analysis
+      if (hasFinalSignatures) {
+        fallbackFields.push(
+          { 
+            type: 'SIGNATURE', 
+            label: 'Client Final Signature', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 2,
+            x: 200,
+            y: 350,
+            width: 200,
+            height: 50
+          },
+          { 
+            type: 'SIGNATURE', 
+            label: 'Provider Final Signature', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 2,
+            x: 200,
+            y: 250,
+            width: 200,
+            height: 50
+          }
+        );
+      }
+      
+      // Witness fields if detected
+      if (hasWitnessSection) {
+        fallbackFields.push(
+          { 
+            type: 'SIGNATURE', 
+            label: 'Witness Signature', 
+            required: false, 
+            section: 'witness',
+            suggestedPage: 2,
+            x: 200,
+            y: 150,
+            width: 200,
+            height: 50
+          }
+        );
+      }
+
+      console.log('🤖 Returning fallback fields:', fallbackFields);
+      return fallbackFields;
+    }
   }
 }

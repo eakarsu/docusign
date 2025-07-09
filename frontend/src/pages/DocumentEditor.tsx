@@ -613,6 +613,19 @@ const DocumentEditor: React.FC = () => {
             setSelectedFieldForSigning(field);
             setSignatureDialogOpen(true);
           });
+
+          // Make label more prominent for signature fields
+          labelText.set({
+            fontSize: 18,
+            fontWeight: 'bold',
+            fill: '#000',
+            backgroundColor: field.signed ? 'rgba(76, 175, 80, 0.9)' : 'rgba(255, 193, 7, 0.9)',
+            padding: 8,
+            cornerStyle: 'round',
+            borderColor: field.signed ? '#4caf50' : '#ff9800',
+            stroke: field.signed ? '#4caf50' : '#ff9800',
+            strokeWidth: 2
+          });
         } else {
           // For other field types, use regular label
           labelText = new fabric.Text(`${field.label}`, {
@@ -633,6 +646,26 @@ const DocumentEditor: React.FC = () => {
         
         // Add click handler for signature fields
         if (field.type === 'SIGNATURE') {
+          // Make signature fields highly visible and clickable
+          fabricObject.set({
+            fill: field.signed ? '#4caf5080' : '#ffc107c0', // More opaque
+            stroke: field.signed ? '#4caf50' : '#ff9800',
+            strokeWidth: field.signed ? 4 : 10, // Much thicker border
+            strokeDashArray: field.signed ? [] : [20, 10], // Larger dashes
+            selectable: true, // Allow selection to show it's interactive
+            evented: true,
+            hoverCursor: 'pointer',
+            moveCursor: 'pointer',
+            rx: 8, // More rounded corners
+            ry: 8,
+            shadow: new fabric.Shadow({
+              color: field.signed ? '#4caf50' : '#ff9800',
+              blur: 10,
+              offsetX: 2,
+              offsetY: 2
+            })
+          });
+
           fabricObject.on('mousedown', (e) => {
             console.log('🖊️ Signature field clicked:', field.label);
             if (e.e) {
@@ -645,32 +678,20 @@ const DocumentEditor: React.FC = () => {
           
           fabricObject.on('mouseover', () => {
             fabricObject.set({
-              fill: field.signed ? '#4caf5080' : '#ffc107a0',
-              stroke: field.signed ? '#4caf50' : '#ff9800',
+              fill: field.signed ? '#4caf50a0' : '#ffc107e0',
+              stroke: field.signed ? '#2e7d32' : '#f57c00',
+              strokeWidth: field.signed ? 5 : 12,
             });
             canvas.renderAll();
           });
           
           fabricObject.on('mouseout', () => {
             fabricObject.set({
-              fill: field.signed ? '#4caf5060' : '#ffc10780',
-              stroke: field.signed ? '#4caf50' : '#ffc107',
+              fill: field.signed ? '#4caf5080' : '#ffc107c0',
+              stroke: field.signed ? '#4caf50' : '#ff9800',
+              strokeWidth: field.signed ? 4 : 10,
             });
             canvas.renderAll();
-          });
-          
-          // Make signature fields more visually distinct and clickable
-          fabricObject.set({
-            fill: field.signed ? '#4caf5060' : '#ffc107a0',
-            stroke: field.signed ? '#4caf50' : '#ffc107',
-            strokeWidth: field.signed ? 3 : 8,
-            strokeDashArray: field.signed ? [] : [15, 8],
-            selectable: false, // Prevent dragging, only allow clicking
-            evented: true,
-            hoverCursor: 'pointer',
-            moveCursor: 'pointer',
-            rx: 5, // Rounded corners
-            ry: 5,
           });
           
           // Update label for signed fields
