@@ -273,14 +273,14 @@ export class AIService {
       // Create overlay image using node-canvas
       const { createCanvas, loadImage } = require('canvas');
       
-      // Load the PDF page image
+      // Load the PDF page image to get dimensions only
       const pdfImage = await loadImage(`data:image/png;base64,${pdfImageBase64}`);
       
       // Create transparent canvas with same dimensions as PDF
       const canvas = createCanvas(pdfImage.width, pdfImage.height);
       const ctx = canvas.getContext('2d');
       
-      // Make canvas transparent
+      // Ensure canvas is completely transparent (no background)
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Use AI-detected locations or fallback to default positions
@@ -334,7 +334,7 @@ export class AIService {
         );
       });
       
-      // Convert to base64
+      // Convert to base64 with transparency preserved
       const overlayImageBase64 = canvas.toDataURL('image/png');
       
       // Save the overlay image
@@ -370,14 +370,14 @@ export class AIService {
       // Create overlay image using node-canvas
       const { createCanvas, loadImage } = require('canvas');
       
-      // Load the PDF page image
+      // Load the PDF page image to get dimensions only
       const pdfImage = await loadImage(`data:image/png;base64,${pdfImageBase64}`);
       
       // Create transparent canvas with same dimensions as PDF
       const canvas = createCanvas(pdfImage.width, pdfImage.height);
       const ctx = canvas.getContext('2d');
       
-      // Make canvas transparent
+      // Ensure canvas is completely transparent (no background)
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Define signature locations based on page
