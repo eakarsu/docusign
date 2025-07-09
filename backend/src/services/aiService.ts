@@ -194,21 +194,12 @@ export class AIService {
 
       const responseText = response.choices[0]?.message?.content;
       if (!responseText) {
-        // Fallback with comprehensive legal document fields
+        // Generic fallback fields that work for most documents
         return [
-          // Individual section signatures
-          { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual', suggestedPage: 1 },
-          { type: 'SIGNATURE', label: 'Individual Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'TEXT', label: 'Individual Witness Name', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'TEXT', label: 'Individual Witness Address', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'DATE', label: 'Individual Signature Date', required: true, section: 'individual', suggestedPage: 1 },
-          
-          // Company section signatures
-          { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company', suggestedPage: 1 },
-          { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'DATE', label: 'Company Signature Date', required: true, section: 'company', suggestedPage: 1 },
+          { type: 'SIGNATURE', label: 'Primary Signature', required: true, section: 'general', suggestedPage: 1 },
+          { type: 'DATE', label: 'Signature Date', required: true, section: 'general', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Printed Name', required: false, section: 'general', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Title/Position', required: false, section: 'general', suggestedPage: 1 },
         ];
       }
 
@@ -216,42 +207,24 @@ export class AIService {
       try {
         fieldSuggestions = JSON.parse(responseText);
       } catch {
-        // Fallback with enhanced field detection
+        // Generic fallback fields that work for most documents
         return [
-          // Individual section signatures
-          { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual', suggestedPage: 1 },
-          { type: 'SIGNATURE', label: 'Individual Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'TEXT', label: 'Individual Witness Name', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'TEXT', label: 'Individual Witness Address', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'DATE', label: 'Individual Signature Date', required: true, section: 'individual', suggestedPage: 1 },
-          
-          // Company section signatures
-          { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company', suggestedPage: 1 },
-          { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness', suggestedPage: 1 },
-          { type: 'DATE', label: 'Company Signature Date', required: true, section: 'company', suggestedPage: 1 },
+          { type: 'SIGNATURE', label: 'Primary Signature', required: true, section: 'general', suggestedPage: 1 },
+          { type: 'DATE', label: 'Signature Date', required: true, section: 'general', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Printed Name', required: false, section: 'general', suggestedPage: 1 },
+          { type: 'TEXT', label: 'Title/Position', required: false, section: 'general', suggestedPage: 1 },
         ];
       }
 
       return fieldSuggestions.fields || [];
     } catch (error) {
       console.error('Field detection error:', error);
-      // Return comprehensive fallback fields for legal documents
+      // Generic fallback fields that work for most documents
       return [
-        // Individual section signatures
-        { type: 'SIGNATURE', label: 'Recipient Signature', required: true, section: 'individual', suggestedPage: 1 },
-        { type: 'SIGNATURE', label: 'Individual Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
-        { type: 'TEXT', label: 'Individual Witness Name', required: true, section: 'witness', suggestedPage: 1 },
-        { type: 'TEXT', label: 'Individual Witness Address', required: true, section: 'witness', suggestedPage: 1 },
-        { type: 'DATE', label: 'Individual Signature Date', required: true, section: 'individual', suggestedPage: 1 },
-        
-        // Company section signatures
-        { type: 'SIGNATURE', label: 'Director Signature', required: true, section: 'company', suggestedPage: 1 },
-        { type: 'SIGNATURE', label: 'Company Witness Signature', required: true, section: 'witness', suggestedPage: 1 },
-        { type: 'TEXT', label: 'Company Witness Name', required: true, section: 'witness', suggestedPage: 1 },
-        { type: 'TEXT', label: 'Company Witness Address', required: true, section: 'witness', suggestedPage: 1 },
-        { type: 'DATE', label: 'Company Signature Date', required: true, section: 'company', suggestedPage: 1 },
+        { type: 'SIGNATURE', label: 'Primary Signature', required: true, section: 'general', suggestedPage: 1 },
+        { type: 'DATE', label: 'Signature Date', required: true, section: 'general', suggestedPage: 1 },
+        { type: 'TEXT', label: 'Printed Name', required: false, section: 'general', suggestedPage: 1 },
+        { type: 'TEXT', label: 'Title/Position', required: false, section: 'general', suggestedPage: 1 },
       ];
     }
   }

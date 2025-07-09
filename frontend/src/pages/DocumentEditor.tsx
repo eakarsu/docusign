@@ -103,18 +103,21 @@ const DocumentEditor: React.FC = () => {
       console.log('AI detected fields:', data.data.fields);
       
       const aiFields = data.data.fields.map((field: any, index: number) => {
-        let x = 50;
-        let y = 100;
+        // Generic positioning that works for any document
+        const column = index % 2; // Alternate between left and right columns
+        const row = Math.floor(index / 2);
+        
+        let x = column === 0 ? 100 : 350; // Left or right column
+        let y = 150 + (row * 100); // Vertical spacing
         let width = 200;
         let height = 30;
-        let page = currentPage;
         
         // Adjust dimensions based on field type
         if (field.type === 'SIGNATURE') {
           width = 250;
           height = 60;
         } else if (field.type === 'TEXT') {
-          width = 300;
+          width = 200;
           height = 25;
         } else if (field.type === 'DATE') {
           width = 150;
@@ -124,49 +127,17 @@ const DocumentEditor: React.FC = () => {
           height = 40;
         }
         
-        // Position fields based on their section and type
-        if (field.section === 'individual') {
-          // Individual section - left side
-          x = 50;
-          if (field.type === 'SIGNATURE') {
-            y = 200 + (index * 20); // Main signature
-          } else if (field.label.includes('Witness')) {
-            y = 280 + (index * 20); // Witness fields below
-          } else {
-            y = 360 + (index * 20); // Other fields
+        // Ensure fields stay within canvas bounds
+        if (canvas) {
+          const canvasWidth = canvas.getWidth();
+          const canvasHeight = canvas.getHeight();
+          
+          if (x + width > canvasWidth - 20) {
+            x = canvasWidth - width - 20;
           }
-        } else if (field.section === 'company') {
-          // Company section - right side
-          x = 350;
-          if (field.type === 'SIGNATURE') {
-            y = 200 + (index * 20); // Director signature
-          } else if (field.label.includes('Witness')) {
-            y = 280 + (index * 20); // Company witness fields
-          } else {
-            y = 360 + (index * 20); // Other company fields
+          if (y + height > canvasHeight - 20) {
+            y = canvasHeight - height - 20;
           }
-        } else if (field.section === 'witness') {
-          // Witness fields - spread between individual and company
-          if (field.label.includes('Individual')) {
-            x = 50; // Left side for individual witness
-            y = 280 + (index * 15);
-          } else if (field.label.includes('Company')) {
-            x = 350; // Right side for company witness
-            y = 280 + (index * 15);
-          } else {
-            x = 200; // Center for general witness fields
-            y = 280 + (index * 15);
-          }
-        }
-        
-        // Ensure fields don't overlap and stay within bounds
-        const fieldSpacing = field.type === 'SIGNATURE' ? 80 : 40;
-        y = y + (index % 5) * fieldSpacing;
-        
-        // Keep within canvas bounds
-        if (x + width > 600) x = 600 - width;
-        if (y + height > 700) {
-          y = 100 + ((index % 8) * 60);
         }
         
         return {
@@ -177,19 +148,13 @@ const DocumentEditor: React.FC = () => {
           y,
           width,
           height,
-          page: field.suggestedPage || page,
+          page: field.suggestedPage || currentPage,
           required: field.required || false,
         };
       });
       
       console.log('Generated AI fields:', aiFields);
       setFields(prevFields => [...prevFields, ...aiFields]);
-      
-      // If we're on the current page, render the fields immediately
-      const currentPageAIFields = aiFields.filter((f: DocumentField) => f.page === currentPage);
-      if (currentPageAIFields.length > 0) {
-        addFieldsToCanvas([...fields, ...aiFields]);
-      }
     },
   });
 
@@ -222,7 +187,7 @@ const DocumentEditor: React.FC = () => {
   }, [document]);
 
   useEffect(() => {
-    if (canvas && fields.length > 0) {
+    if (canvas) {
       addFieldsToCanvas(fields);
     }
   }, [canvas, fields, currentPage]);
@@ -254,7 +219,10 @@ const DocumentEditor: React.FC = () => {
   };
 
   const addFieldsToCanvas = (fieldsToAdd: DocumentField[]) => {
-    if (!canvas) return;
+    if (!canvas) {
+      console.log('Canvas not ready');
+      return;
+    }
 
     // Clear existing objects first
     canvas.clear();
@@ -264,8 +232,12 @@ const DocumentEditor: React.FC = () => {
     
     console.log(`Rendering ${currentPageFields.length} fields for page ${currentPage}:`, currentPageFields);
 
+    if (currentPageFields.length === 0) {
+      console.log('No fields to render for current page');
+      return;
+    }
+
     currentPageFields.forEach((field, index) => {
-      let fabricObject;
       let fieldColor;
       let fieldLabel;
       
@@ -295,79 +267,52 @@ const DocumentEditor: React.FC = () => {
           fieldLabel = field.type;
       }
 
-      // Ensure field is within canvas bounds
+      // Use field coordinates directly, but ensure they're within bounds
       const canvasWidth = canvas.getWidth();
       const canvasHeight = canvas.getHeight();
       
-      let adjustedX = Math.max(10, Math.min(field.x, canvasWidth - field.width - 10));
-      let adjustedY = Math.max(10, Math.min(field.y, canvasHeight - field.height - 10));
-      
-      // If fields are overlapping, spread them out
-      if (index > 0) {
-        const previousFields = currentPageFields.slice(0, index);
-        let attempts = 0;
-        while (attempts < 10) {
-          const overlapping = previousFields.some(prevField => {
-            return Math.abs(adjustedX - prevField.x) < field.width && 
-                   Math.abs(adjustedY - prevField.y) < field.height;
-          });
-          
-          if (!overlapping) break;
-          
-          adjustedY += 70; // Move down
-          if (adjustedY + field.height > canvasHeight - 10) {
-            adjustedY = 10;
-            adjustedX += 220; // Move right
-          }
-          attempts++;
-        }
-      }
+      let x = Math.max(5, Math.min(field.x, canvasWidth - field.width - 5));
+      let y = Math.max(5, Math.min(field.y, canvasHeight - field.height - 5));
+
+      console.log(`Creating field ${field.id} at (${x}, ${y}) with size ${field.width}x${field.height}`);
 
       // Create field rectangle
-      fabricObject = new fabric.Rect({
-        left: adjustedX,
-        top: adjustedY,
+      const fabricObject = new fabric.Rect({
+        left: x,
+        top: y,
         width: field.width,
         height: field.height,
-        fill: `${fieldColor}30`, // 30% opacity
+        fill: `${fieldColor}20`, // 20% opacity for better visibility
         stroke: fieldColor,
         strokeWidth: 2,
         strokeDashArray: field.type === 'SIGNATURE' ? [5, 5] : [],
         cornerColor: fieldColor,
-        cornerSize: 8,
+        cornerSize: 6,
         transparentCorners: false,
         hasRotatingPoint: false,
       });
 
-      // Add label text with field number for easier identification
-      const labelText = new fabric.Text(`${fieldLabel} ${index + 1}`, {
-        left: adjustedX + 5,
-        top: adjustedY + 5,
-        fontSize: 10,
+      // Add label text
+      const labelText = new fabric.Text(`${field.label}`, {
+        left: x + 5,
+        top: y + 5,
+        fontSize: 11,
         fill: fieldColor,
         fontWeight: 'bold',
         selectable: false,
         evented: false,
       });
 
-      if (fabricObject) {
-        fabricObject.data = { fieldId: field.id, fieldType: field.type };
-        canvas.add(fabricObject);
-        canvas.add(labelText);
-        
-        // Update field position in state if it was adjusted
-        if (adjustedX !== field.x || adjustedY !== field.y) {
-          setFields(prev => prev.map(f => 
-            f.id === field.id 
-              ? { ...f, x: adjustedX, y: adjustedY }
-              : f
-          ));
-        }
-      }
+      // Set field data for identification
+      fabricObject.data = { fieldId: field.id, fieldType: field.type };
+      
+      // Add to canvas
+      canvas.add(fabricObject);
+      canvas.add(labelText);
     });
     
     canvas.renderAll();
-    console.log(`Canvas rendered with ${canvas.getObjects().length} objects`);
+    console.log(`Canvas rendered with ${canvas.getObjects().length} objects for page ${currentPage}`);
   };
 
   const addField = (type: DocumentField['type']) => {
