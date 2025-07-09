@@ -1,6 +1,9 @@
 import express from 'express';
 import { AIService } from '../services/aiService';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 const router = express.Router();
 
@@ -93,12 +96,43 @@ router.post('/generate-contract', authenticate, async (req: AuthRequest, res, ne
  */
 router.post('/detect-fields/:documentId', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    // In a real implementation, you would extract text from the document
-    const documentText = "Sample document text for field detection";
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    // Get the document from database
+    const document = await prisma.document.findUnique({
+      where: { id: req.params.documentId },
+      include: { sender: true }
+    });
+    
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+    
+    // Check if user has access to this document
+    if (document.senderId !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // For now, we'll use the document title and description as text
+    // In a real implementation, you would extract text from the PDF file
+    const documentText = `${document.title}\n${document.description || ''}`;
+    
+    console.log('🤖 AI detect-fields route called for document:', req.params.documentId);
+    console.log('🤖 Document text length:', documentText.length);
     
     const fields = await AIService.detectFields(documentText);
-    return res.json({ fields });
+    
+    console.log('🤖 AI service returned fields:', fields);
+    console.log('🤖 Fields count:', fields.length);
+    
+    return res.json({ 
+      success: true,
+      data: fields,
+      fields: fields // Include both formats for compatibility
+    });
   } catch (error) {
+    console.error('❌ AI detect-fields error:', error);
     return next(error);
   }
 });

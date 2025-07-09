@@ -105,8 +105,8 @@ const DocumentEditor: React.FC = () => {
       console.log('🤖 AI API Response:', data);
       console.log('🤖 AI detected fields raw:', data.data);
       
-      // Handle both possible response formats
-      const fieldsArray = data.data.fields || data.data || [];
+      // Handle multiple possible response formats
+      const fieldsArray = data.data?.fields || data.data?.data || data.data || data.fields || [];
       console.log('🤖 Fields array:', fieldsArray);
       
       if (!Array.isArray(fieldsArray) || fieldsArray.length === 0) {
