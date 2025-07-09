@@ -61,6 +61,8 @@ export const documentAPI = {
     apiClient.post(`/documents/${documentId}/send`, { signers }),
   signDocument: (documentId: string, signatureData: string) =>
     apiClient.post(`/documents/${documentId}/sign`, { signatureData }),
+  deleteDocument: (documentId: string) =>
+    apiClient.delete(`/documents/${documentId}`),
 };
 
 export const templateAPI = {

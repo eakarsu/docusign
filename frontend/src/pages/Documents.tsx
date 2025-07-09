@@ -60,6 +60,7 @@ interface Document {
   status: 'DRAFT' | 'SENT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   createdAt: string;
   updatedAt: string;
+  fileUrl: string;
   sender: {
     firstName: string;
     lastName: string;

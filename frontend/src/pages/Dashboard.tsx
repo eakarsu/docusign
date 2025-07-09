@@ -53,6 +53,7 @@ import { useNavigate } from 'react-router-dom';
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [quickActionDialog, setQuickActionDialog] = useState(false);
   const [notificationMenu, setNotificationMenu] = useState<null | HTMLElement>(null);
   const [filterMenu, setFilterMenu] = useState<null | HTMLElement>(null);
