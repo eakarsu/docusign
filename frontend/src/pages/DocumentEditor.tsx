@@ -542,19 +542,13 @@ const DocumentEditor: React.FC = () => {
       let x = Math.max(10, Math.min(field.x, canvasWidth - field.width - 10));
       let y = Math.max(10, Math.min(field.y, canvasHeight - field.height - 10));
         
-      // For signature fields, ensure they're more visible
-      if (field.type === 'SIGNATURE') {
-        // Adjust Y position to be more aligned with signature lines in the document
-        if (field.page === 1) {
-          // Page 1 signature positions (near bottom)
-          y = canvasHeight - 200 + (index * 60);
-        } else if (field.page === 2) {
-          // Page 2 signature positions (distributed throughout)
-          y = 150 + (index * 80);
-        }
-          
-        // Ensure signature fields don't overlap
-        x = 50 + ((index % 2) * 300);
+      // Use the AI-provided coordinates directly for better alignment
+      // Only adjust if coordinates are clearly wrong (outside canvas bounds)
+      if (x < 0 || x > canvasWidth - field.width) {
+        x = Math.max(10, Math.min(field.x, canvasWidth - field.width - 10));
+      }
+      if (y < 0 || y > canvasHeight - field.height) {
+        y = Math.max(10, Math.min(field.y, canvasHeight - field.height - 10));
       }
 
       console.log('Final adjusted field position:', { x, y });
@@ -1044,7 +1038,7 @@ const DocumentEditor: React.FC = () => {
               {fields.map((field: DocumentField, index: number) => (
                 <Box key={field.id} sx={{ mb: 1 }}>
                   <Chip
-                    label={`${index + 1}. ${field.type} - Page ${field.page}`}
+                    label={`${index + 1}. ${field.label} - Page ${field.page}`}
                     size="small"
                     color={field.page === currentPage ? 'primary' : 'default'}
                     sx={{ mr: 1, cursor: 'pointer' }}
@@ -1057,7 +1051,7 @@ const DocumentEditor: React.FC = () => {
                           if (canvas) {
                             addFieldsToCanvas(fields);
                           }
-                        }, 300);
+                        }, 500); // Increased timeout for better reliability
                       }
                     }}
                     onDelete={() => {

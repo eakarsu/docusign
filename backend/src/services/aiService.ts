@@ -250,14 +250,15 @@ export class AIService {
       // Fallback to rule-based signature overlay detection
       const overlays = [];
       
-      // Look for signature patterns in the text with estimated coordinates
+      // Look for signature patterns in the text with better estimated coordinates
+      // Based on typical document layout where signatures appear near the bottom
       const signaturePatterns = [
-        { pattern: /Client Initial:.*?_+/gi, label: 'Client Initial', page: 1, type: 'INITIAL', x: 200, y: 120, width: 200, height: 40 },
-        { pattern: /Provider Initial:.*?_+/gi, label: 'Provider Initial', page: 1, type: 'INITIAL', x: 200, y: 80, width: 200, height: 40 },
-        { pattern: /Full Signature:.*?_+/gi, label: 'Client Final Signature', page: 2, type: 'SIGNATURE', x: 200, y: 350, width: 250, height: 60 },
-        { pattern: /Signature:.*?_+/gi, label: 'Signature', page: 2, type: 'SIGNATURE', x: 200, y: 250, width: 250, height: 60 },
-        { pattern: /Witness.*?Signature:.*?_+/gi, label: 'Witness Signature', page: 2, type: 'SIGNATURE', x: 200, y: 150, width: 250, height: 60 },
-        { pattern: /Director.*?Signature:.*?_+/gi, label: 'Director Signature', page: 2, type: 'SIGNATURE', x: 200, y: 400, width: 250, height: 60 }
+        { pattern: /Client Initial:.*?_+/gi, label: 'Client Initial', page: 1, type: 'INITIAL', x: 200, y: 200, width: 200, height: 40 },
+        { pattern: /Provider Initial:.*?_+/gi, label: 'Provider Initial', page: 1, type: 'INITIAL', x: 200, y: 160, width: 200, height: 40 },
+        { pattern: /Full Signature:.*?_+/gi, label: 'Client Final Signature', page: 2, type: 'SIGNATURE', x: 200, y: 400, width: 250, height: 60 },
+        { pattern: /Signature of Director/gi, label: 'Director Signature', page: 2, type: 'SIGNATURE', x: 200, y: 300, width: 250, height: 60 },
+        { pattern: /Signature of witness/gi, label: 'Witness Signature', page: 2, type: 'SIGNATURE', x: 200, y: 200, width: 250, height: 60 },
+        { pattern: /Name of witness/gi, label: 'Witness Name', page: 2, type: 'TEXT', x: 200, y: 170, width: 200, height: 25 }
       ];
       
       signaturePatterns.forEach((pattern, index) => {
@@ -281,73 +282,60 @@ export class AIService {
         }
       });
       
-      // If no patterns found, create basic overlays with coordinates
+      // If no patterns found, create basic overlays with better coordinates
       if (overlays.length === 0) {
         overlays.push(
           {
             id: 'fallback-overlay-1',
-            type: 'INITIAL',
-            label: 'Client Initial',
-            page: 1,
-            signatureText: 'Client Initial: _________________________',
+            type: 'SIGNATURE',
+            label: 'Director Signature',
+            page: 2,
+            signatureText: 'Signature of Director: _________________________',
             required: true,
             overlayType: 'CLICK_TO_SIGN',
-            x: 200,
-            y: 120,
+            x: 480,
+            y: 300,
             width: 200,
-            height: 40
+            height: 50
           },
           {
             id: 'fallback-overlay-2',
-            type: 'INITIAL',
-            label: 'Provider Initial',
-            page: 1,
-            signatureText: 'Provider Initial: _______________________',
-            required: true,
-            overlayType: 'CLICK_TO_SIGN',
-            x: 200,
-            y: 80,
-            width: 200,
-            height: 40
-          },
-          {
-            id: 'fallback-overlay-3',
-            type: 'SIGNATURE',
-            label: 'Client Final Signature',
-            page: 2,
-            signatureText: 'Full Signature: _________________________',
-            required: true,
-            overlayType: 'CLICK_TO_SIGN',
-            x: 200,
-            y: 350,
-            width: 250,
-            height: 60
-          },
-          {
-            id: 'fallback-overlay-4',
-            type: 'SIGNATURE',
-            label: 'Provider Final Signature',
-            page: 2,
-            signatureText: 'Full Signature: _________________________',
-            required: true,
-            overlayType: 'CLICK_TO_SIGN',
-            x: 200,
-            y: 250,
-            width: 250,
-            height: 60
-          },
-          {
-            id: 'fallback-overlay-5',
             type: 'SIGNATURE',
             label: 'Witness Signature',
             page: 2,
-            signatureText: 'Signature: _________________________',
+            signatureText: 'Signature of witness: _________________________',
+            required: true,
+            overlayType: 'CLICK_TO_SIGN',
+            x: 480,
+            y: 250,
+            width: 200,
+            height: 50
+          },
+          {
+            id: 'fallback-overlay-3',
+            type: 'TEXT',
+            label: 'Witness Name',
+            page: 2,
+            signatureText: 'Name of witness: _________________________',
+            required: true,
+            overlayType: 'CLICK_TO_SIGN',
+            x: 480,
+            y: 220,
+            width: 200,
+            height: 25
+          },
+          {
+            id: 'fallback-overlay-4',
+            type: 'TEXT',
+            label: 'Witness Address',
+            page: 2,
+            signatureText: 'Address of witness: _________________________',
             required: false,
             overlayType: 'CLICK_TO_SIGN',
-            x: 200,
-            y: 150,
-            width: 250,
-            height: 60
+            x: 480,
+            y: 140,
+            width: 200,
+            height: 25
           }
         );
       }

@@ -105,8 +105,12 @@ export async function createTestDocument() {
     'Title: _________________________',
     '',
     'WITNESS (if required):',
-    'Signature: _________________________ Date: _________',
-    'Print Name: _________________________',
+    'Signature of witness: _________________________ Date: _________',
+    'Name of witness: _________________________',
+    'Address of witness: _________________________',
+    '',
+    'DIRECTOR:',
+    'Signature of Director: _________________________ Date: _________',
   ];
 
   yPosition = 700;
