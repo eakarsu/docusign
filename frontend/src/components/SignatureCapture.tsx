@@ -155,7 +155,16 @@ const SignatureCapture: React.FC<SignatureCaptureProps> = ({
   const isSignatureValid = () => {
     switch (tabValue) {
       case 0:
-        return signatureRef.current && !signatureRef.current.isEmpty();
+        // For draw tab, check if signature canvas has content
+        if (signatureRef.current) {
+          try {
+            return !signatureRef.current.isEmpty();
+          } catch (error) {
+            console.error('Error checking signature canvas:', error);
+            return false;
+          }
+        }
+        return false;
       case 1:
         return typedSignature.trim().length > 0;
       case 2:
@@ -197,6 +206,21 @@ const SignatureCapture: React.FC<SignatureCaptureProps> = ({
                 }}
                 backgroundColor="white"
                 penColor="black"
+                onBegin={() => {
+                  // Force re-render when user starts drawing
+                  setTimeout(() => {
+                    if (signatureRef.current) {
+                      signatureRef.current.getCanvas().getContext('2d');
+                    }
+                  }, 10);
+                }}
+                onEnd={() => {
+                  // Force validation check when user finishes drawing
+                  setTimeout(() => {
+                    // This will trigger a re-render of the component
+                    setTypedSignature(typedSignature);
+                  }, 10);
+                }}
               />
             </Paper>
             <Box sx={{ display: 'flex', gap: 1 }}>

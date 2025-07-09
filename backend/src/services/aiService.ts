@@ -232,15 +232,17 @@ export class AIService {
     } catch (error) {
       console.error('🤖 AI field detection failed, using fallback:', error);
       
-      // Fallback to rule-based detection if AI fails
+      // Fallback to comprehensive rule-based detection
       const hasInitialSignatures = documentText.includes('INITIAL SIGNATURES') || documentText.includes('Client Initial') || documentText.includes('Provider Initial');
       const hasFinalSignatures = documentText.includes('FINAL SIGNATURES') || documentText.includes('Full Signature') || documentText.includes('CLIENT:') || documentText.includes('SERVICE PROVIDER:');
       const hasWitnessSection = documentText.includes('WITNESS') || documentText.includes('Witness');
+      const hasDirectorSignature = documentText.includes('Signature of Director') || documentText.includes('Director');
       
       console.log('🤖 Fallback document analysis:', {
         hasInitialSignatures,
         hasFinalSignatures,
-        hasWitnessSection
+        hasWitnessSection,
+        hasDirectorSignature
       });
       
       const fallbackFields = [];
@@ -254,8 +256,19 @@ export class AIService {
             required: true, 
             section: 'individual',
             suggestedPage: 1,
-            x: 200,
+            x: 150,
             y: 200,
+            width: 200,
+            height: 25
+          },
+          { 
+            type: 'TEXT', 
+            label: 'Provider Name', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 1,
+            x: 150,
+            y: 160,
             width: 200,
             height: 25
           },
@@ -267,8 +280,19 @@ export class AIService {
             suggestedPage: 1,
             x: 200,
             y: 120,
-            width: 150,
+            width: 200,
             height: 40
+          },
+          { 
+            type: 'DATE', 
+            label: 'Client Initial Date', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 1,
+            x: 450,
+            y: 120,
+            width: 100,
+            height: 25
           },
           { 
             type: 'SIGNATURE', 
@@ -278,8 +302,19 @@ export class AIService {
             suggestedPage: 1,
             x: 200,
             y: 80,
-            width: 150,
+            width: 200,
             height: 40
+          },
+          { 
+            type: 'DATE', 
+            label: 'Provider Initial Date', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 1,
+            x: 450,
+            y: 80,
+            width: 100,
+            height: 25
           }
         );
       }
@@ -295,8 +330,30 @@ export class AIService {
             suggestedPage: 2,
             x: 200,
             y: 350,
-            width: 200,
+            width: 250,
             height: 50
+          },
+          { 
+            type: 'DATE', 
+            label: 'Client Signature Date', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 2,
+            x: 470,
+            y: 350,
+            width: 100,
+            height: 25
+          },
+          { 
+            type: 'TEXT', 
+            label: 'Client Printed Name', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 2,
+            x: 200,
+            y: 320,
+            width: 200,
+            height: 25
           },
           { 
             type: 'SIGNATURE', 
@@ -306,7 +363,46 @@ export class AIService {
             suggestedPage: 2,
             x: 200,
             y: 250,
+            width: 250,
+            height: 50
+          },
+          { 
+            type: 'DATE', 
+            label: 'Provider Signature Date', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 2,
+            x: 470,
+            y: 250,
+            width: 100,
+            height: 25
+          },
+          { 
+            type: 'TEXT', 
+            label: 'Provider Printed Name', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 2,
+            x: 200,
+            y: 220,
             width: 200,
+            height: 25
+          }
+        );
+      }
+      
+      // Director signature if detected
+      if (hasDirectorSignature) {
+        fallbackFields.push(
+          { 
+            type: 'SIGNATURE', 
+            label: 'Director Signature', 
+            required: true, 
+            section: 'individual',
+            suggestedPage: 2,
+            x: 200,
+            y: 180,
+            width: 250,
             height: 50
           }
         );
@@ -322,14 +418,25 @@ export class AIService {
             section: 'witness',
             suggestedPage: 2,
             x: 200,
-            y: 150,
-            width: 200,
+            y: 120,
+            width: 250,
             height: 50
+          },
+          { 
+            type: 'TEXT', 
+            label: 'Witness Name', 
+            required: false, 
+            section: 'witness',
+            suggestedPage: 2,
+            x: 200,
+            y: 90,
+            width: 200,
+            height: 25
           }
         );
       }
 
-      console.log('🤖 Returning fallback fields:', fallbackFields);
+      console.log('🤖 Returning comprehensive fallback fields:', fallbackFields);
       return fallbackFields;
     }
   }

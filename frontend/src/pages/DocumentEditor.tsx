@@ -556,14 +556,30 @@ const DocumentEditor: React.FC = () => {
       // Use field coordinates directly, but ensure they're within bounds
       const canvasWidth = canvas.getWidth();
       const canvasHeight = canvas.getHeight();
-      
+        
       console.log('Canvas bounds:', { width: canvasWidth, height: canvasHeight });
       console.log('Original field position:', { x: field.x, y: field.y });
-      
-      let x = Math.max(5, Math.min(field.x, canvasWidth - field.width - 5));
-      let y = Math.max(5, Math.min(field.y, canvasHeight - field.height - 5));
+        
+      // Better positioning - convert from PDF coordinates to canvas coordinates
+      let x = Math.max(10, Math.min(field.x, canvasWidth - field.width - 10));
+      let y = Math.max(10, Math.min(field.y, canvasHeight - field.height - 10));
+        
+      // For signature fields, ensure they're more visible
+      if (field.type === 'SIGNATURE') {
+        // Adjust Y position to be more aligned with signature lines in the document
+        if (field.page === 1) {
+          // Page 1 signature positions (near bottom)
+          y = canvasHeight - 200 + (index * 60);
+        } else if (field.page === 2) {
+          // Page 2 signature positions (distributed throughout)
+          y = 150 + (index * 80);
+        }
+          
+        // Ensure signature fields don't overlap
+        x = 50 + ((index % 2) * 300);
+      }
 
-      console.log('Adjusted field position:', { x, y });
+      console.log('Final adjusted field position:', { x, y });
       console.log('Field color:', fieldColor);
 
       try {
@@ -1044,17 +1060,25 @@ const DocumentEditor: React.FC = () => {
                     label={`${index + 1}. ${field.type} - Page ${field.page}`}
                     size="small"
                     color={field.page === currentPage ? 'primary' : 'default'}
-                    sx={{ mr: 1 }}
+                    sx={{ mr: 1, cursor: 'pointer' }}
                     onClick={() => {
+                      console.log(`🔄 Navigating to page ${field.page} for field:`, field.label);
                       if (field.page !== currentPage) {
                         setCurrentPage(field.page);
+                        // Wait for page to load before re-rendering fields
+                        setTimeout(() => {
+                          if (canvas) {
+                            addFieldsToCanvas(fields);
+                          }
+                        }, 300);
                       }
                     }}
                     onDelete={() => {
-                      setFields(fields.filter(f => f.id !== field.id));
+                      const updatedFields = fields.filter(f => f.id !== field.id);
+                      setFields(updatedFields);
                       // Refresh canvas
                       if (canvas) {
-                        addFieldsToCanvas(fields.filter(f => f.id !== field.id));
+                        addFieldsToCanvas(updatedFields);
                       }
                     }}
                   />
