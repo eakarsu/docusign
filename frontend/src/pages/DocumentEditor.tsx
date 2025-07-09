@@ -372,9 +372,15 @@ const DocumentEditor: React.FC = () => {
             onClick={() => detectFieldsMutation.mutate()}
             disabled={detectFieldsMutation.isPending}
             sx={{ mt: 2, mb: 2 }}
+            title="Requires OpenRouter API key to be configured"
           >
             {detectFieldsMutation.isPending ? 'Detecting...' : 'AI Detect Fields'}
           </Button>
+          {detectFieldsMutation.error && (
+            <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+              AI service unavailable. Please configure OpenRouter API key.
+            </Typography>
+          )}
 
           <Button
             fullWidth
