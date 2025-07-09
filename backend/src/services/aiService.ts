@@ -11,6 +11,10 @@ const openai = new OpenAI({
   }
 });
 
+// Debug logging
+console.log('OpenRouter API Key exists:', !!process.env.OPENROUTER_API_KEY);
+console.log('OpenRouter API Key length:', process.env.OPENROUTER_API_KEY?.length || 0);
+
 const prisma = new PrismaClient();
 
 export class AIService {
@@ -129,6 +133,12 @@ export class AIService {
   }
 
   static async detectFields(documentText: string) {
+    // Check if API key is available
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY not found in environment variables');
+      throw createError('OpenRouter API key not configured', 500);
+    }
+
     try {
       const fieldDetectionPrompt = `
         Analyze the following legal document text and identify ALL signature fields, witness fields, date fields, and text input fields.
