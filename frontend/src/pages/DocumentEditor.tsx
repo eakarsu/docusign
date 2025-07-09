@@ -160,12 +160,23 @@ const DocumentEditor: React.FC = () => {
       setFields(aiFields);
       
       console.log('Fields state should now be updated with AI fields');
+      console.log('Setting fields to:', aiFields);
       
-      // Force canvas to re-render with new fields
+      // Force canvas to re-render with new fields multiple times to ensure it works
       setTimeout(() => {
-        console.log('Force rendering AI fields on canvas...');
+        console.log('Force rendering AI fields on canvas (attempt 1)...');
         addFieldsToCanvas(aiFields);
       }, 100);
+      
+      setTimeout(() => {
+        console.log('Force rendering AI fields on canvas (attempt 2)...');
+        addFieldsToCanvas(aiFields);
+      }, 500);
+      
+      setTimeout(() => {
+        console.log('Force rendering AI fields on canvas (attempt 3)...');
+        addFieldsToCanvas(aiFields);
+      }, 1000);
     },
   });
 
@@ -212,6 +223,7 @@ const DocumentEditor: React.FC = () => {
 
   useEffect(() => {
     console.log('useEffect triggered - canvas:', !!canvas, 'fields:', fields.length, 'currentPage:', currentPage);
+    console.log('All fields:', fields);
     if (canvas) {
       console.log('Canvas dimensions:', canvas.getWidth(), 'x', canvas.getHeight());
       addFieldsToCanvas(fields);
@@ -557,6 +569,21 @@ const DocumentEditor: React.FC = () => {
             disabled={fields.length === 0}
           >
             Send for Signature
+          </Button>
+
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={() => {
+              console.log('Manual render test - fields:', fields);
+              console.log('Canvas ready:', !!canvas);
+              if (canvas) {
+                addFieldsToCanvas(fields);
+              }
+            }}
+            sx={{ mt: 1 }}
+          >
+            DEBUG: Force Render Fields
           </Button>
 
           <Box sx={{ mt: 3 }}>
