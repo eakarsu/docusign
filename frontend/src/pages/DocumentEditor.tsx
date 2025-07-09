@@ -178,15 +178,23 @@ const DocumentEditor: React.FC = () => {
         if (currentPage !== 2) {
           console.log('🔄 Auto-navigating to page 2 where default fields are located...');
           setCurrentPage(2);
+          
+          // Wait for page navigation to complete
+          setTimeout(() => {
+            console.log('🔄 Re-rendering default fields after navigation...');
+            if (canvas) {
+              addFieldsToCanvas(defaultFields);
+            }
+          }, 500);
+        } else {
+          // Already on page 2, render immediately
+          setTimeout(() => {
+            console.log('🔄 Re-rendering default fields...');
+            if (canvas) {
+              addFieldsToCanvas(defaultFields);
+            }
+          }, 100);
         }
-        
-        // Re-render fields after navigation
-        setTimeout(() => {
-          console.log('🔄 Re-rendering default fields...');
-          if (canvas) {
-            addFieldsToCanvas(defaultFields);
-          }
-        }, 200);
         return;
       }
       
@@ -259,16 +267,25 @@ const DocumentEditor: React.FC = () => {
       
       if (pageWithMostFields && parseInt(pageWithMostFields) !== currentPage) {
         console.log(`🔄 Auto-navigating to page ${pageWithMostFields} where most fields are located...`);
-        setCurrentPage(parseInt(pageWithMostFields));
+        const targetPage = parseInt(pageWithMostFields);
+        setCurrentPage(targetPage);
+        
+        // Wait longer for page navigation to complete before rendering fields
+        setTimeout(() => {
+          console.log(`🔄 Re-rendering fields for page ${targetPage}...`);
+          if (canvas) {
+            addFieldsToCanvas(aiFields);
+          }
+        }, 500); // Increased delay to ensure page loads
+      } else {
+        // If we're already on the right page, render immediately
+        setTimeout(() => {
+          console.log('🔄 Re-rendering fields for current page...');
+          if (canvas) {
+            addFieldsToCanvas(aiFields);
+          }
+        }, 100);
       }
-      
-      // Re-render fields after navigation
-      setTimeout(() => {
-        console.log('🔄 Re-rendering fields for current page...');
-        if (canvas) {
-          addFieldsToCanvas(aiFields);
-        }
-      }, 200);
     },
     onError: (error) => {
       console.error('❌ AI field detection failed:', error);
@@ -307,15 +324,23 @@ const DocumentEditor: React.FC = () => {
       if (currentPage !== 2) {
         console.log('🔄 Auto-navigating to page 2 where fallback fields are located...');
         setCurrentPage(2);
+        
+        // Wait for page navigation to complete
+        setTimeout(() => {
+          console.log('🔄 Re-rendering fallback fields after navigation...');
+          if (canvas) {
+            addFieldsToCanvas(fallbackFields);
+          }
+        }, 500);
+      } else {
+        // Already on page 2, render immediately
+        setTimeout(() => {
+          console.log('🔄 Re-rendering fallback fields...');
+          if (canvas) {
+            addFieldsToCanvas(fallbackFields);
+          }
+        }, 100);
       }
-      
-      // Re-render fields after navigation
-      setTimeout(() => {
-        console.log('🔄 Re-rendering fallback fields...');
-        if (canvas) {
-          addFieldsToCanvas(fallbackFields);
-        }
-      }, 200);
     },
   });
 
