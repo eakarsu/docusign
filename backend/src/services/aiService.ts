@@ -132,6 +132,164 @@ export class AIService {
     }
   }
 
+  static async generateSignatureOverlayImage(documentId: string, pageNumber: number, pdfImageBase64: string) {
+    console.log('🤖 AI generateSignatureOverlayImage called for document:', documentId, 'page:', pageNumber);
+    
+    try {
+      // Use AI vision to analyze the PDF page image and generate overlay image
+      const prompt = `
+        Analyze this PDF page image and create an overlay image with "CLICK TO SIGN" buttons positioned exactly over signature locations.
+        
+        Look for these visual patterns:
+        - Lines with "Signature:" text followed by underscores
+        - Lines with "Initial:" text followed by underscores
+        - "Sign here" or similar indicators
+        - Witness signature areas
+        - Director signature areas
+        - Any underscores that indicate signature placement
+        
+        Create a transparent PNG overlay image that:
+        1. Has the same dimensions as the input image
+        2. Contains orange "CLICK TO SIGN" buttons positioned exactly over signature lines
+        3. Each button should be approximately 200x50 pixels
+        4. Use orange background (#FF9800) with white text
+        5. Make buttons clearly visible and clickable-looking
+        
+        Return the overlay image as a base64 encoded PNG.
+        Also provide a JSON array of button locations for click detection:
+        [
+          {
+            "x": button x coordinate,
+            "y": button y coordinate,
+            "width": button width,
+            "height": button height,
+            "label": "descriptive name like 'Director Signature'"
+          }
+        ]
+        
+        Format your response as:
+        OVERLAY_IMAGE: data:image/png;base64,[base64_data]
+        LOCATIONS: [json_array]
+      `;
+
+      console.log('🤖 Making OpenRouter API call with vision for overlay generation...');
+      
+      const response = await openai.chat.completions.create({
+        model: 'openai/gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert at analyzing document images and creating precise signature overlays. Generate overlay images with "CLICK TO SIGN" buttons positioned exactly over signature lines.'
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: prompt
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/png;base64,${pdfImageBase64}`
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 2000
+      });
+
+      console.log('🤖 OpenRouter vision API response received');
+      
+      const aiResponse = response.choices[0]?.message?.content;
+      if (!aiResponse) {
+        throw new Error('No response from AI vision');
+      }
+
+      console.log('🤖 AI Vision Response:', aiResponse.substring(0, 500) + '...');
+
+      // Parse the AI response to extract overlay image and locations
+      const overlayImageMatch = aiResponse.match(/OVERLAY_IMAGE:\s*(data:image\/png;base64,[A-Za-z0-9+/=]+)/);
+      const locationsMatch = aiResponse.match(/LOCATIONS:\s*(\[[\s\S]*?\])/);
+      
+      let overlayImage = null;
+      let signatureLocations = [];
+      
+      if (overlayImageMatch) {
+        overlayImage = overlayImageMatch[1];
+        console.log('🎨 AI generated overlay image (length):', overlayImage.length);
+      }
+      
+      if (locationsMatch) {
+        try {
+          signatureLocations = JSON.parse(locationsMatch[1]);
+          console.log('🤖 Parsed signature locations from AI:', signatureLocations);
+        } catch (parseError) {
+          console.error('🤖 Failed to parse locations JSON:', parseError);
+        }
+      }
+      
+      // If AI didn't provide overlay image, create fallback
+      if (!overlayImage) {
+        console.log('🔄 AI did not provide overlay image, using fallback');
+        return await this.createFallbackOverlay(pageNumber);
+      }
+      
+      return {
+        overlayImage,
+        signatureFields: signatureLocations.map((location: any, index: number) => ({
+          id: `vision-overlay-${Date.now()}-${index}`,
+          type: 'SIGNATURE',
+          label: location.label || `Signature ${index + 1}`,
+          x: location.x,
+          y: location.y,
+          width: location.width || 200,
+          height: location.height || 50,
+          page: pageNumber,
+          required: true,
+          overlayType: 'CLICK_TO_SIGN'
+        }))
+      };
+
+    } catch (error) {
+      console.error('🤖 AI vision overlay generation failed, using fallback:', error);
+      
+      // Fallback to basic overlay generation
+      return await this.createFallbackOverlay(pageNumber);
+    }
+  }
+
+  static async createFallbackOverlay(pageNumber: number) {
+    console.log('🔄 Creating fallback overlay for page:', pageNumber);
+    
+    const fallbackLocations = pageNumber === 1 ? [
+      { x: 200, y: 120, width: 200, height: 50, label: 'Client Initial', type: 'INITIAL' },
+      { x: 200, y: 80, width: 200, height: 50, label: 'Provider Initial', type: 'INITIAL' }
+    ] : [
+      { x: 200, y: 350, width: 250, height: 60, label: 'Client Final Signature', type: 'SIGNATURE' },
+      { x: 200, y: 250, width: 250, height: 60, label: 'Provider Final Signature', type: 'SIGNATURE' },
+      { x: 200, y: 150, width: 250, height: 60, label: 'Witness Signature', type: 'SIGNATURE' }
+    ];
+    
+    return {
+      overlayImage: null, // No overlay image for fallback
+      signatureFields: fallbackLocations.map((location, index) => ({
+        id: `fallback-overlay-${Date.now()}-${index}`,
+        type: location.type,
+        label: location.label,
+        x: location.x,
+        y: location.y,
+        width: location.width,
+        height: location.height,
+        page: pageNumber,
+        required: true,
+        overlayType: 'CLICK_TO_SIGN'
+      }))
+    };
+  }
+
   static async detectSignatureOverlays(documentText: string) {
     console.log('🤖 AI detectSignatureOverlays called with text length:', documentText.length);
     console.log('🤖 Document text preview:', documentText.substring(0, 200));

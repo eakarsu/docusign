@@ -78,9 +78,76 @@ router.post('/generate-contract', authenticate, async (req: AuthRequest, res, ne
 
 /**
  * @swagger
+ * /api/ai/generate-overlay/{documentId}/{pageNumber}:
+ *   post:
+ *     summary: Generate signature overlay image for a PDF page using AI vision
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: documentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: pageNumber
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               pdfImageBase64:
+ *                 type: string
+ *                 description: Base64 encoded PNG image of the PDF page
+ *     responses:
+ *       200:
+ *         description: Overlay image generated successfully
+ */
+router.post('/generate-overlay/:documentId/:pageNumber', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const { pdfImageBase64 } = req.body;
+    const pageNumber = parseInt(req.params.pageNumber);
+    
+    if (!pdfImageBase64) {
+      return res.status(400).json({ error: 'PDF image data is required' });
+    }
+    
+    console.log('🤖 AI generate-overlay route called for document:', req.params.documentId, 'page:', pageNumber);
+    
+    const result = await AIService.generateSignatureOverlayImage(
+      req.params.documentId, 
+      pageNumber, 
+      pdfImageBase64
+    );
+    
+    console.log('🤖 AI service returned overlay result:', {
+      hasOverlayImage: !!result.overlayImage,
+      signatureFieldsCount: result.signatureFields.length
+    });
+    
+    return res.json({ 
+      success: true,
+      data: result,
+      overlayImage: result.overlayImage,
+      signatureFields: result.signatureFields
+    });
+  } catch (error) {
+    console.error('❌ AI generate-overlay error:', error);
+    return next(error);
+  }
+});
+
+/**
+ * @swagger
  * /api/ai/detect-fields/{documentId}:
  *   post:
- *     summary: Detect fields in a document using AI
+ *     summary: Detect fields in a document using AI (legacy method)
  *     tags: [AI]
  *     security:
  *       - bearerAuth: []
