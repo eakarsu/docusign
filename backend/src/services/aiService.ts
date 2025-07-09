@@ -135,77 +135,98 @@ export class AIService {
   static async detectFields(documentText: string) {
     console.log('🤖 AI detectFields called with text length:', documentText.length);
     
-    // Return fields distributed across both pages for better coverage
+    // Detect all 4 signature places as mentioned in the document
     const comprehensiveFields = [
-      // Page 1 fields - Initial document fields
+      // Page 1 fields - Initial signatures
       { 
         type: 'TEXT', 
-        label: 'Document Title', 
-        required: false, 
-        section: 'general',
-        suggestedPage: 1 
-      },
-      { 
-        type: 'DATE', 
-        label: 'Document Date', 
-        required: false, 
-        section: 'general',
-        suggestedPage: 1 
-      },
-      { 
-        type: 'TEXT', 
-        label: 'Party 1 Name', 
-        required: false, 
+        label: 'Client Name', 
+        required: true, 
         section: 'individual',
         suggestedPage: 1 
       },
       { 
         type: 'TEXT', 
-        label: 'Party 2 Name', 
-        required: false, 
+        label: 'Provider Name', 
+        required: true, 
+        section: 'individual',
+        suggestedPage: 1 
+      },
+      { 
+        type: 'SIGNATURE', 
+        label: 'Client Initial', 
+        required: true, 
+        section: 'individual',
+        suggestedPage: 1 
+      },
+      { 
+        type: 'DATE', 
+        label: 'Client Initial Date', 
+        required: true, 
+        section: 'individual',
+        suggestedPage: 1 
+      },
+      { 
+        type: 'SIGNATURE', 
+        label: 'Provider Initial', 
+        required: true, 
+        section: 'individual',
+        suggestedPage: 1 
+      },
+      { 
+        type: 'DATE', 
+        label: 'Provider Initial Date', 
+        required: true, 
         section: 'individual',
         suggestedPage: 1 
       },
       
-      // Page 2 fields - Signature fields (where most signatures typically are)
+      // Page 2 fields - Final signatures
       { 
         type: 'SIGNATURE', 
-        label: 'Recipient Signature', 
+        label: 'Client Final Signature', 
         required: true, 
         section: 'individual',
         suggestedPage: 2 
       },
       { 
         type: 'DATE', 
-        label: 'Signature Date', 
+        label: 'Client Signature Date', 
         required: true, 
         section: 'individual',
         suggestedPage: 2 
       },
       { 
         type: 'TEXT', 
-        label: 'Printed Name', 
+        label: 'Client Printed Name', 
         required: true, 
         section: 'individual',
         suggestedPage: 2 
       },
       { 
         type: 'SIGNATURE', 
-        label: 'Witness Signature', 
+        label: 'Provider Final Signature', 
         required: true, 
-        section: 'witness',
+        section: 'individual',
+        suggestedPage: 2 
+      },
+      { 
+        type: 'DATE', 
+        label: 'Provider Signature Date', 
+        required: true, 
+        section: 'individual',
         suggestedPage: 2 
       },
       { 
         type: 'TEXT', 
-        label: 'Witness Name', 
+        label: 'Provider Printed Name', 
         required: true, 
-        section: 'witness',
+        section: 'individual',
         suggestedPage: 2 
       },
     ];
 
-    console.log('🤖 Returning comprehensive fields:', comprehensiveFields);
+    console.log('🤖 Returning comprehensive fields with 4 signature places:', comprehensiveFields);
     return comprehensiveFields;
   }
 }
