@@ -97,7 +97,7 @@ const DocumentEditor: React.FC = () => {
     },
   });
 
-  const detectFieldsM utation = useMutation({
+  const detectFieldsMutation = useMutation({
     mutationFn: () => aiAPI.detectFields(id!),
     onSuccess: (data) => {
       console.log('AI detected fields:', data.data.fields);
