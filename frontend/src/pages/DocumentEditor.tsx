@@ -864,10 +864,63 @@ const DocumentEditor: React.FC = () => {
               detectFieldsMutation.mutate();
             }}
             disabled={detectFieldsMutation.isPending}
-            sx={{ mt: 2, mb: 2 }}
+            sx={{ mt: 1, mb: 1 }}
             title="Generate signature overlay using AI vision"
           >
             {detectFieldsMutation.isPending ? 'Generating Overlay...' : 'AI Generate Overlay'}
+          </Button>
+
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<AIIcon />}
+            onClick={() => {
+              console.log('🤖 AI Detect Fields button clicked');
+              // Use the legacy detect fields method
+              aiAPI.detectFields(id!).then((data) => {
+                console.log('🤖 AI API Response:', data);
+                const overlaysArray = data.data?.overlays || data.data?.data || data.data || [];
+                console.log('🤖 Signature overlays array:', overlaysArray);
+                
+                if (Array.isArray(overlaysArray) && overlaysArray.length > 0) {
+                  const signatureFields = overlaysArray.map((overlay: any, index: number) => ({
+                    id: `signature-overlay-${Date.now()}-${index}`,
+                    type: 'SIGNATURE' as const,
+                    label: overlay.label || `Signature ${index + 1}`,
+                    x: overlay.x || (50 + (index % 2) * 300),
+                    y: overlay.y || (100 + Math.floor(index / 2) * 120),
+                    width: overlay.width || 250,
+                    height: overlay.height || 80,
+                    page: overlay.page || 1,
+                    required: overlay.required !== false,
+                    signatureText: overlay.signatureText || '',
+                    overlayType: 'CLICK_TO_SIGN'
+                  }));
+                  
+                  setFields(signatureFields);
+                  
+                  // Navigate to page with most fields
+                  const fieldsByPage = signatureFields.reduce((acc, field) => {
+                    acc[field.page] = (acc[field.page] || 0) + 1;
+                    return acc;
+                  }, {} as Record<number, number>);
+                  
+                  const pageWithMostFields = Object.entries(fieldsByPage)
+                    .sort(([,a], [,b]) => b - a)[0]?.[0];
+                  
+                  if (pageWithMostFields && parseInt(pageWithMostFields) !== currentPage) {
+                    setCurrentPage(parseInt(pageWithMostFields));
+                  }
+                }
+              }).catch((error) => {
+                console.error('❌ AI field detection failed:', error);
+                createFallbackFields();
+              });
+            }}
+            sx={{ mt: 1, mb: 2 }}
+            title="Detect signature fields using AI text analysis"
+          >
+            AI Detect Fields
           </Button>
           {detectFieldsMutation.error && (
             <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
