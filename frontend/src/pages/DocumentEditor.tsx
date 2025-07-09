@@ -174,19 +174,19 @@ const DocumentEditor: React.FC = () => {
         console.log('📝 Created default fields:', defaultFields);
         setFields(defaultFields);
         
-        // Don't auto-navigate, let user see fields are created
-        console.log('📄 Default fields created for page 2');
+        // Navigate to page 2 where the default fields are located
+        if (currentPage !== 2) {
+          console.log('🔄 Auto-navigating to page 2 where default fields are located...');
+          setCurrentPage(2);
+        }
         
-        // Don't auto-navigate - stay on current page
-        console.log('📄 Default fields created for page 2');
-        
-        // Re-render fields for current page
+        // Re-render fields after navigation
         setTimeout(() => {
           console.log('🔄 Re-rendering default fields...');
           if (canvas) {
             addFieldsToCanvas(defaultFields);
           }
-        }, 100);
+        }, 200);
         return;
       }
       
