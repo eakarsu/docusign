@@ -83,6 +83,10 @@ export const aiAPI = {
     apiClient.post('/ai/generate-contract', { prompt, contractType }),
   detectFields: (documentId: string) =>
     apiClient.post(`/ai/detect-fields/${documentId}`),
+  generateOverlay: (documentId: string, pageNumber: number, pdfImageBase64: string) =>
+    apiClient.post(`/ai/generate-overlay/${documentId}/${pageNumber}`, {
+      pdfImageBase64
+    }),
 };
 
 export default apiClient;
