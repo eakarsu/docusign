@@ -315,4 +315,50 @@ export class DocumentService {
 
     return updatedSignature;
   }
+
+  static async deleteDocument(documentId: string, userId: string, role: string) {
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+      include: {
+        signatures: true
+      }
+    });
+
+    if (!document) {
+      throw createError('Document not found', 404);
+    }
+
+    // Check permissions
+    if (role !== 'ADMIN' && document.senderId !== userId) {
+      throw createError('Access denied', 403);
+    }
+
+    // Delete associated records first
+    await prisma.signature.deleteMany({
+      where: { documentId }
+    });
+
+    await prisma.documentField.deleteMany({
+      where: { documentId }
+    });
+
+    await prisma.aIAnalysis.deleteMany({
+      where: { documentId }
+    });
+
+    // Delete the file from local storage
+    try {
+      await LocalFileService.deleteFile(document.fileUrl);
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      // Continue with database deletion even if file deletion fails
+    }
+
+    // Delete the document record
+    await prisma.document.delete({
+      where: { id: documentId }
+    });
+
+    return { success: true };
+  }
 }

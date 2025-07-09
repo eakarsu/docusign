@@ -42,9 +42,11 @@ import {
   Analytics as AnalyticsIcon,
   Refresh as RefreshIcon,
   FilterList as FilterIcon,
+  Download as DownloadIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { useQuery } from '@tanstack/react-query';
-import { documentAPI } from '../services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { documentAPI, aiAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -55,10 +57,23 @@ const Dashboard: React.FC = () => {
   const [notificationMenu, setNotificationMenu] = useState<null | HTMLElement>(null);
   const [filterMenu, setFilterMenu] = useState<null | HTMLElement>(null);
   const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
+  const [documentMenu, setDocumentMenu] = useState<null | HTMLElement>(null);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
   
   const { data: documents, isLoading } = useQuery({
     queryKey: ['documents'],
     queryFn: () => documentAPI.getDocuments(),
+  });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (documentId: string) => documentAPI.deleteDocument(documentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+    },
+  });
+
+  const analyzeDocumentMutation = useMutation({
+    mutationFn: (documentId: string) => aiAPI.analyzeDocument(documentId),
   });
 
   const notifications = [
@@ -87,6 +102,38 @@ const Dashboard: React.FC = () => {
   }, [documents]);
 
   const recentDocuments = documents?.data?.slice(0, 5) || [];
+
+  const handleDocumentMenuOpen = (event: React.MouseEvent<HTMLElement>, document: any) => {
+    event.stopPropagation();
+    setDocumentMenu(event.currentTarget);
+    setSelectedDocument(document);
+  };
+
+  const handleDocumentMenuClose = () => {
+    setDocumentMenu(null);
+    setSelectedDocument(null);
+  };
+
+  const handleDeleteDocument = () => {
+    if (selectedDocument) {
+      deleteDocumentMutation.mutate(selectedDocument.id);
+    }
+    handleDocumentMenuClose();
+  };
+
+  const handleAnalyzeDocument = () => {
+    if (selectedDocument) {
+      analyzeDocumentMutation.mutate(selectedDocument.id);
+    }
+    handleDocumentMenuClose();
+  };
+
+  const handleDownloadDocument = () => {
+    if (selectedDocument) {
+      window.open(selectedDocument.fileUrl, '_blank');
+    }
+    handleDocumentMenuClose();
+  };
 
   if (isLoading) {
     return <LinearProgress />;
@@ -237,7 +284,10 @@ const Dashboard: React.FC = () => {
                               />
                             </Box>
                           </Box>
-                          <IconButton size="small">
+                          <IconButton 
+                            size="small"
+                            onClick={(e) => handleDocumentMenuOpen(e, doc)}
+                          >
                             <MoreIcon />
                           </IconButton>
                         </Box>
@@ -421,6 +471,35 @@ const Dashboard: React.FC = () => {
           <Button onClick={() => setQuickActionDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Document Actions Menu */}
+      <Menu
+        anchorEl={documentMenu}
+        open={Boolean(documentMenu)}
+        onClose={handleDocumentMenuClose}
+      >
+        <MenuItem onClick={() => {
+          if (selectedDocument) {
+            navigate(`/documents/${selectedDocument.id}/edit`);
+          }
+          handleDocumentMenuClose();
+        }}>
+          <EditIcon sx={{ mr: 1 }} />
+          Edit
+        </MenuItem>
+        <MenuItem onClick={handleAnalyzeDocument}>
+          <AnalyticsIcon sx={{ mr: 1 }} />
+          AI Analysis
+        </MenuItem>
+        <MenuItem onClick={handleDownloadDocument}>
+          <DownloadIcon sx={{ mr: 1 }} />
+          Download
+        </MenuItem>
+        <MenuItem onClick={handleDeleteDocument} sx={{ color: 'error.main' }}>
+          <DeleteIcon sx={{ mr: 1 }} />
+          Delete
+        </MenuItem>
+      </Menu>
 
       {/* Floating Action Button for Quick Document Creation */}
       <Fab

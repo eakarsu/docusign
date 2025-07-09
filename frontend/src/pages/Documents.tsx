@@ -113,6 +113,13 @@ const Documents: React.FC = () => {
     mutationFn: (documentId: string) => aiAPI.analyzeDocument(documentId),
   });
 
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (documentId: string) => documentAPI.deleteDocument(documentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+    },
+  });
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
       'application/pdf': ['.pdf'],
@@ -149,6 +156,20 @@ const Documents: React.FC = () => {
   const handleMenuClose = () => {
     setMenuAnchor(null);
     setSelectedDocument(null);
+  };
+
+  const handleDeleteDocument = () => {
+    if (selectedDocument) {
+      deleteDocumentMutation.mutate(selectedDocument.id);
+    }
+    handleMenuClose();
+  };
+
+  const handleDownloadDocument = () => {
+    if (selectedDocument) {
+      window.open(selectedDocument.fileUrl, '_blank');
+    }
+    handleMenuClose();
   };
 
   const getStatusColor = (status: string) => {
@@ -593,11 +614,11 @@ const Documents: React.FC = () => {
           <AIIcon sx={{ mr: 1 }} />
           AI Analysis
         </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
+        <MenuItem onClick={handleDownloadDocument}>
           <DownloadIcon sx={{ mr: 1 }} />
           Download
         </MenuItem>
-        <MenuItem onClick={handleMenuClose} sx={{ color: 'error.main' }}>
+        <MenuItem onClick={handleDeleteDocument} sx={{ color: 'error.main' }}>
           <DeleteIcon sx={{ mr: 1 }} />
           Delete
         </MenuItem>
