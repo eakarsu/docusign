@@ -100,14 +100,21 @@ const DocumentEditor: React.FC = () => {
   const detectFieldsMutation = useMutation({
     mutationFn: () => aiAPI.detectFields(id!),
     onSuccess: (data) => {
+      console.log('AI detected fields:', data.data.fields);
+      
       const aiFields = data.data.fields.map((field: any, index: number) => {
-        // Better positioning based on field type and section
-        let x = 400; // Start from middle-right of document
-        let y = 400 - (index * 60); // Spread vertically
+        // Calculate position based on field index and type
+        const fieldsPerColumn = 4;
+        const columnIndex = Math.floor(index / fieldsPerColumn);
+        const rowIndex = index % fieldsPerColumn;
+        
+        let x = 50 + (columnIndex * 280); // Multiple columns
+        let y = 100 + (rowIndex * 80); // Spread vertically
         let width = 200;
         let height = 30;
+        let page = currentPage;
         
-        // Adjust positioning based on field type
+        // Adjust dimensions based on field type
         if (field.type === 'SIGNATURE') {
           width = 250;
           height = 60;
@@ -117,33 +124,52 @@ const DocumentEditor: React.FC = () => {
         } else if (field.type === 'DATE') {
           width = 150;
           height = 25;
+        } else if (field.type === 'INITIAL') {
+          width = 100;
+          height = 40;
         }
         
         // Position based on section for better organization
         if (field.section === 'witness') {
-          x = 100; // Left side for witness fields
+          x = 50; // Left side for witness fields
         } else if (field.section === 'company') {
-          y = y - 200; // Lower on page for company section
+          x = 350; // Right side for company fields
+          // Company sections might be on different pages
+          if (index >= 4) {
+            page = Math.min(numPages, currentPage + 1);
+          }
+        } else if (field.section === 'individual') {
+          x = 200; // Center for individual fields
         }
         
-        // Ensure fields don't go off-page
-        if (y < 50) y = 50 + (index % 5) * 40;
+        // Ensure fields stay within reasonable bounds
+        if (x + width > 600) x = 600 - width;
+        if (y + height > 700) {
+          y = 100 + ((index % 3) * 80);
+          page = Math.min(numPages, currentPage + 1);
+        }
         
         return {
-          id: `ai-${index}`,
+          id: `ai-${Date.now()}-${index}`,
           type: field.type,
-          label: field.label || `${field.type} Field`,
+          label: field.label || `${field.type} Field ${index + 1}`,
           x,
           y,
           width,
           height,
-          page: currentPage,
+          page,
           required: field.required || false,
         };
       });
       
-      setFields([...fields, ...aiFields]);
-      addFieldsToCanvas(aiFields);
+      console.log('Generated AI fields:', aiFields);
+      setFields(prevFields => [...prevFields, ...aiFields]);
+      
+      // If we're on the current page, render the fields immediately
+      const currentPageAIFields = aiFields.filter(f => f.page === currentPage);
+      if (currentPageAIFields.length > 0) {
+        addFieldsToCanvas([...fields, ...aiFields]);
+      }
     },
   });
 
@@ -213,10 +239,12 @@ const DocumentEditor: React.FC = () => {
     // Clear existing objects first
     canvas.clear();
 
-    fieldsToAdd.forEach(field => {
-      // Only show fields for current page
-      if (field.page !== currentPage) return;
-      
+    // Get current page fields
+    const currentPageFields = fieldsToAdd.filter(field => field.page === currentPage);
+    
+    console.log(`Rendering ${currentPageFields.length} fields for page ${currentPage}:`, currentPageFields);
+
+    currentPageFields.forEach((field, index) => {
       let fabricObject;
       let fieldColor;
       let fieldLabel;
@@ -238,15 +266,47 @@ const DocumentEditor: React.FC = () => {
           fieldColor = '#9c27b0';
           fieldLabel = 'CHECKBOX';
           break;
+        case 'INITIAL':
+          fieldColor = '#ff5722';
+          fieldLabel = 'INITIAL';
+          break;
         default:
           fieldColor = '#666';
           fieldLabel = field.type;
       }
 
+      // Ensure field is within canvas bounds
+      const canvasWidth = canvas.getWidth();
+      const canvasHeight = canvas.getHeight();
+      
+      let adjustedX = Math.max(10, Math.min(field.x, canvasWidth - field.width - 10));
+      let adjustedY = Math.max(10, Math.min(field.y, canvasHeight - field.height - 10));
+      
+      // If fields are overlapping, spread them out
+      if (index > 0) {
+        const previousFields = currentPageFields.slice(0, index);
+        let attempts = 0;
+        while (attempts < 10) {
+          const overlapping = previousFields.some(prevField => {
+            return Math.abs(adjustedX - prevField.x) < field.width && 
+                   Math.abs(adjustedY - prevField.y) < field.height;
+          });
+          
+          if (!overlapping) break;
+          
+          adjustedY += 70; // Move down
+          if (adjustedY + field.height > canvasHeight - 10) {
+            adjustedY = 10;
+            adjustedX += 220; // Move right
+          }
+          attempts++;
+        }
+      }
+
       // Create field rectangle
       fabricObject = new fabric.Rect({
-        left: field.x,
-        top: field.y,
+        left: adjustedX,
+        top: adjustedY,
         width: field.width,
         height: field.height,
         fill: `${fieldColor}30`, // 30% opacity
@@ -259,11 +319,11 @@ const DocumentEditor: React.FC = () => {
         hasRotatingPoint: false,
       });
 
-      // Add label text
-      const labelText = new fabric.Text(fieldLabel, {
-        left: field.x + 5,
-        top: field.y + 5,
-        fontSize: 12,
+      // Add label text with field number for easier identification
+      const labelText = new fabric.Text(`${fieldLabel} ${index + 1}`, {
+        left: adjustedX + 5,
+        top: adjustedY + 5,
+        fontSize: 10,
         fill: fieldColor,
         fontWeight: 'bold',
         selectable: false,
@@ -274,10 +334,20 @@ const DocumentEditor: React.FC = () => {
         fabricObject.data = { fieldId: field.id, fieldType: field.type };
         canvas.add(fabricObject);
         canvas.add(labelText);
+        
+        // Update field position in state if it was adjusted
+        if (adjustedX !== field.x || adjustedY !== field.y) {
+          setFields(prev => prev.map(f => 
+            f.id === field.id 
+              ? { ...f, x: adjustedX, y: adjustedY }
+              : f
+          ));
+        }
       }
     });
     
     canvas.renderAll();
+    console.log(`Canvas rendered with ${canvas.getObjects().length} objects`);
   };
 
   const addField = (type: DocumentField['type']) => {
@@ -437,21 +507,39 @@ const DocumentEditor: React.FC = () => {
 
           <Box sx={{ mt: 3 }}>
             <Typography variant="subtitle2" gutterBottom>
-              Fields ({fields.length})
+              All Fields ({fields.length})
             </Typography>
-            {fields.map((field: DocumentField, index: number) => (
-              <Chip
-                key={field.id}
-                label={`${field.type} - Page ${field.page}`}
-                size="small"
-                sx={{ m: 0.5 }}
-                onDelete={() => {
-                  setFields(fields.filter(f => f.id !== field.id));
-                  // Remove from canvas placeholder
-                  console.log('Remove field from canvas:', field.id);
-                }}
-              />
-            ))}
+            <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+              {fields.map((field: DocumentField, index: number) => (
+                <Box key={field.id} sx={{ mb: 1 }}>
+                  <Chip
+                    label={`${index + 1}. ${field.type} - Page ${field.page}`}
+                    size="small"
+                    color={field.page === currentPage ? 'primary' : 'default'}
+                    sx={{ mr: 1 }}
+                    onClick={() => {
+                      if (field.page !== currentPage) {
+                        setCurrentPage(field.page);
+                      }
+                    }}
+                    onDelete={() => {
+                      setFields(fields.filter(f => f.id !== field.id));
+                      // Refresh canvas
+                      if (canvas) {
+                        addFieldsToCanvas(fields.filter(f => f.id !== field.id));
+                      }
+                    }}
+                  />
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 1 }}>
+                    {field.label} ({field.x}, {field.y})
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+            
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Current page: {currentPage} | Fields on this page: {fields.filter(f => f.page === currentPage).length}
+            </Typography>
           </Box>
         </Box>
       </Drawer>
