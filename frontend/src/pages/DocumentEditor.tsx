@@ -342,7 +342,11 @@ const DocumentEditor: React.FC = () => {
       clearTimeout(timeoutId);
       if (canvas) {
         console.log('🧹 Disposing canvas...');
-        canvas.dispose();
+        try {
+          canvas.dispose();
+        } catch (error) {
+          console.error('Error disposing canvas:', error);
+        }
       }
     };
   }, [canvasRef.current]);
@@ -400,15 +404,32 @@ const DocumentEditor: React.FC = () => {
       return;
     }
 
+    // Check if canvas is properly initialized
+    try {
+      const canvasElement = canvas.getElement();
+      if (!canvasElement) {
+        console.log('❌ Canvas element not found - returning early');
+        return;
+      }
+    } catch (error) {
+      console.error('❌ Canvas not properly initialized:', error);
+      return;
+    }
+
     console.log('Canvas state:', {
       width: canvas.getWidth(),
       height: canvas.getHeight(),
       objectCount: canvas.getObjects().length
     });
 
-    // Clear existing objects first
+    // Clear existing objects first - with error handling
     console.log('Clearing canvas...');
-    canvas.clear();
+    try {
+      canvas.clear();
+    } catch (error) {
+      console.error('Error clearing canvas:', error);
+      return;
+    }
 
     // Get current page fields
     const currentPageFields = fieldsToAdd.filter(field => field.page === currentPage);
@@ -530,26 +551,33 @@ const DocumentEditor: React.FC = () => {
     });
     
     console.log('\n🎨 Rendering canvas...');
-    canvas.renderAll();
-    
-    const finalObjectCount = canvas.getObjects().length;
-    console.log(`✅ Canvas rendered with ${finalObjectCount} objects for page ${currentPage}`);
-    console.log('Canvas objects:', canvas.getObjects().map(obj => ({
-      type: obj.type,
-      left: obj.left,
-      top: obj.top,
-      width: obj.width,
-      height: obj.height
-    })));
-    
-    // Ensure canvas is properly rendered
-    canvas.renderAll();
-    
-    // Add a small delay to ensure stability
-    setTimeout(() => {
-      console.log('🔄 Final render confirmation...');
+    try {
       canvas.renderAll();
-    }, 50);
+      
+      const finalObjectCount = canvas.getObjects().length;
+      console.log(`✅ Canvas rendered with ${finalObjectCount} objects for page ${currentPage}`);
+      console.log('Canvas objects:', canvas.getObjects().map(obj => ({
+        type: obj.type,
+        left: obj.left,
+        top: obj.top,
+        width: obj.width,
+        height: obj.height
+      })));
+      
+      // Add a small delay to ensure stability
+      setTimeout(() => {
+        console.log('🔄 Final render confirmation...');
+        try {
+          if (canvas && canvas.getElement()) {
+            canvas.renderAll();
+          }
+        } catch (error) {
+          console.error('Error in final render:', error);
+        }
+      }, 50);
+    } catch (error) {
+      console.error('Error rendering canvas:', error);
+    }
   };
 
   const addField = (type: DocumentField['type']) => {
@@ -825,28 +853,34 @@ const DocumentEditor: React.FC = () => {
                   
                   // Update canvas size to match PDF page exactly
                   if (canvas) {
-                    const pdfWidth = page.width;
-                    const pdfHeight = page.height;
-                    
-                    console.log('🎨 Updating canvas size:', { pdfWidth, pdfHeight });
-                    
-                    canvas.setWidth(pdfWidth);
-                    canvas.setHeight(pdfHeight);
-                    canvas.calcOffset();
-                    
-                    // Update canvas element size
-                    const canvasElement = canvasRef.current;
-                    if (canvasElement) {
-                      canvasElement.style.width = `${pdfWidth}px`;
-                      canvasElement.style.height = `${pdfHeight}px`;
-                      console.log('✅ Canvas element size updated');
+                    try {
+                      const pdfWidth = page.width;
+                      const pdfHeight = page.height;
+                      
+                      console.log('🎨 Updating canvas size:', { pdfWidth, pdfHeight });
+                      
+                      canvas.setWidth(pdfWidth);
+                      canvas.setHeight(pdfHeight);
+                      canvas.calcOffset();
+                      
+                      // Update canvas element size
+                      const canvasElement = canvasRef.current;
+                      if (canvasElement) {
+                        canvasElement.style.width = `${pdfWidth}px`;
+                        canvasElement.style.height = `${pdfHeight}px`;
+                        console.log('✅ Canvas element size updated');
+                      }
+                      
+                      // Re-render fields after canvas resize
+                      console.log('🔄 Re-rendering fields after canvas resize...');
+                      setTimeout(() => {
+                        if (canvas && canvas.getElement()) {
+                          addFieldsToCanvas(fields);
+                        }
+                      }, 200);
+                    } catch (error) {
+                      console.error('Error updating canvas size:', error);
                     }
-                    
-                    // Re-render fields after canvas resize
-                    console.log('🔄 Re-rendering fields after canvas resize...');
-                    setTimeout(() => {
-                      addFieldsToCanvas(fields);
-                    }, 200);
                   }
                 }}
               />
