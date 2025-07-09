@@ -237,8 +237,12 @@ export class AIService {
         return await this.createFallbackOverlay(pageNumber);
       }
       
+      // Save the overlay image to file system
+      const savedImagePath = await this.saveOverlayImage(overlayImage, documentId, pageNumber);
+      
       return {
         overlayImage,
+        savedImagePath,
         signatureFields: signatureLocations.map((location: any, index: number) => ({
           id: `vision-overlay-${Date.now()}-${index}`,
           type: 'SIGNATURE',
@@ -261,6 +265,38 @@ export class AIService {
     }
   }
 
+  static async saveOverlayImage(overlayImageBase64: string, documentId: string, pageNumber: number): Promise<string> {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Create overlays directory if it doesn't exist
+      const overlaysDir = path.join(process.cwd(), 'uploads', 'overlays');
+      if (!fs.existsSync(overlaysDir)) {
+        fs.mkdirSync(overlaysDir, { recursive: true });
+      }
+      
+      // Generate filename
+      const timestamp = Date.now();
+      const filename = `overlay-${documentId}-page${pageNumber}-${timestamp}.png`;
+      const filePath = path.join(overlaysDir, filename);
+      
+      // Extract base64 data (remove data:image/png;base64, prefix)
+      const base64Data = overlayImageBase64.replace(/^data:image\/png;base64,/, '');
+      
+      // Save to file
+      fs.writeFileSync(filePath, base64Data, 'base64');
+      
+      const savedPath = `/uploads/overlays/${filename}`;
+      console.log('💾 Overlay image saved to:', savedPath);
+      
+      return savedPath;
+    } catch (error) {
+      console.error('❌ Failed to save overlay image:', error);
+      throw error;
+    }
+  }
+
   static async createFallbackOverlay(pageNumber: number) {
     console.log('🔄 Creating fallback overlay for page:', pageNumber);
     
@@ -275,6 +311,7 @@ export class AIService {
     
     return {
       overlayImage: null, // No overlay image for fallback
+      savedImagePath: null,
       signatureFields: fallbackLocations.map((location, index) => ({
         id: `fallback-overlay-${Date.now()}-${index}`,
         type: location.type,

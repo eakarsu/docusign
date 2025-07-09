@@ -128,6 +128,7 @@ router.post('/generate-overlay/:documentId/:pageNumber', authenticate, async (re
     
     console.log('🤖 AI service returned overlay result:', {
       hasOverlayImage: !!result.overlayImage,
+      savedImagePath: result.savedImagePath,
       signatureFieldsCount: result.signatureFields.length
     });
     
@@ -135,6 +136,7 @@ router.post('/generate-overlay/:documentId/:pageNumber', authenticate, async (re
       success: true,
       data: result,
       overlayImage: result.overlayImage,
+      savedImagePath: result.savedImagePath,
       signatureFields: result.signatureFields
     });
   } catch (error) {
