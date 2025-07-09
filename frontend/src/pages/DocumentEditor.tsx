@@ -97,7 +97,7 @@ const DocumentEditor: React.FC = () => {
     },
   });
 
-  const detectFieldsMutation = useMutation({
+  const detectFieldsM utation = useMutation({
     mutationFn: () => aiAPI.detectFields(id!),
     onSuccess: (data) => {
       console.log('AI detected fields:', data.data.fields);
@@ -154,7 +154,18 @@ const DocumentEditor: React.FC = () => {
       });
       
       console.log('Generated AI fields:', aiFields);
-      setFields(prevFields => [...prevFields, ...aiFields]);
+      console.log('Current fields before adding AI fields:', fields);
+      
+      // Replace existing fields with AI detected fields
+      setFields(aiFields);
+      
+      console.log('Fields state should now be updated with AI fields');
+      
+      // Force canvas to re-render with new fields
+      setTimeout(() => {
+        console.log('Force rendering AI fields on canvas...');
+        addFieldsToCanvas(aiFields);
+      }, 100);
     },
   });
 
