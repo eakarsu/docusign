@@ -135,9 +135,39 @@ export class AIService {
   static async detectFields(documentText: string) {
     console.log('🤖 AI detectFields called with text length:', documentText.length);
     
-    // Always return comprehensive fields for legal documents, regardless of API key
+    // Return fields distributed across both pages for better coverage
     const comprehensiveFields = [
-      // Main document signatures (typically on page 2)
+      // Page 1 fields - Initial document fields
+      { 
+        type: 'TEXT', 
+        label: 'Document Title', 
+        required: false, 
+        section: 'general',
+        suggestedPage: 1 
+      },
+      { 
+        type: 'DATE', 
+        label: 'Document Date', 
+        required: false, 
+        section: 'general',
+        suggestedPage: 1 
+      },
+      { 
+        type: 'TEXT', 
+        label: 'Party 1 Name', 
+        required: false, 
+        section: 'individual',
+        suggestedPage: 1 
+      },
+      { 
+        type: 'TEXT', 
+        label: 'Party 2 Name', 
+        required: false, 
+        section: 'individual',
+        suggestedPage: 1 
+      },
+      
+      // Page 2 fields - Signature fields (where most signatures typically are)
       { 
         type: 'SIGNATURE', 
         label: 'Recipient Signature', 
@@ -159,8 +189,6 @@ export class AIService {
         section: 'individual',
         suggestedPage: 2 
       },
-      
-      // Witness fields (typically on page 2)
       { 
         type: 'SIGNATURE', 
         label: 'Witness Signature', 
@@ -173,36 +201,6 @@ export class AIService {
         label: 'Witness Name', 
         required: true, 
         section: 'witness',
-        suggestedPage: 2 
-      },
-      { 
-        type: 'TEXT', 
-        label: 'Witness Address', 
-        required: false, 
-        section: 'witness',
-        suggestedPage: 2 
-      },
-      
-      // Company/Director signatures (if applicable, typically on page 2)
-      { 
-        type: 'SIGNATURE', 
-        label: 'Director Signature', 
-        required: false, 
-        section: 'company',
-        suggestedPage: 2 
-      },
-      { 
-        type: 'TEXT', 
-        label: 'Director Name', 
-        required: false, 
-        section: 'company',
-        suggestedPage: 2 
-      },
-      { 
-        type: 'DATE', 
-        label: 'Company Date', 
-        required: false, 
-        section: 'company',
         suggestedPage: 2 
       },
     ];

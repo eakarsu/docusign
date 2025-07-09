@@ -174,17 +174,16 @@ const DocumentEditor: React.FC = () => {
         console.log('📝 Created default fields:', defaultFields);
         setFields(defaultFields);
         
-        // Navigate to page 2 to show the fields
-        console.log('📄 Navigating to page 2 for default fields');
-        setCurrentPage(2);
+        // Don't auto-navigate, let user see fields are created
+        console.log('📄 Default fields created for page 2');
         
-        // Force canvas to re-render after page change
+        // Just re-render current page
         setTimeout(() => {
-          console.log('🔄 Re-rendering default fields after page navigation...');
+          console.log('🔄 Re-rendering default fields...');
           if (canvas) {
             addFieldsToCanvas(defaultFields);
           }
-        }, 300);
+        }, 100);
         return;
       }
       
@@ -239,30 +238,25 @@ const DocumentEditor: React.FC = () => {
       });
       
       console.log('✅ Generated AI fields:', aiFields);
+      
+      // Set fields first
       setFields(aiFields);
       
-      // Navigate to the page with the most fields
-      const pageWithMostFields = aiFields.reduce((acc, field) => {
-        acc[field.page] = (acc[field.page] || 0) + 1;
-        return acc;
-      }, {} as Record<number, number>);
-      
-      const targetPage = Object.keys(pageWithMostFields).reduce((a, b) => 
-        pageWithMostFields[parseInt(a)] > pageWithMostFields[parseInt(b)] ? a : b
+      // Don't automatically navigate - let user navigate manually
+      console.log('📄 Fields distributed across pages:', 
+        aiFields.reduce((acc, field) => {
+          acc[field.page] = (acc[field.page] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>)
       );
       
-      console.log('📄 Navigating to page with most fields:', targetPage);
-      const newPage = parseInt(targetPage);
-      console.log('📄 Setting current page to:', newPage);
-      setCurrentPage(newPage);
-      
-      // Force canvas to re-render after page change
+      // Just re-render current page
       setTimeout(() => {
-        console.log('🔄 Re-rendering fields after page navigation...');
+        console.log('🔄 Re-rendering fields for current page...');
         if (canvas) {
           addFieldsToCanvas(aiFields);
         }
-      }, 300);
+      }, 100);
     },
     onError: (error) => {
       console.error('❌ AI field detection failed:', error);
@@ -295,16 +289,15 @@ const DocumentEditor: React.FC = () => {
       
       console.log('🔄 Using fallback fields:', fallbackFields);
       setFields(fallbackFields);
-      console.log('📄 Navigating to page 2 for fallback fields');
-      setCurrentPage(2);
+      console.log('📄 Fallback fields created for page 2');
       
-      // Force canvas to re-render after page change
+      // Just re-render current page
       setTimeout(() => {
-        console.log('🔄 Re-rendering fallback fields after page navigation...');
+        console.log('🔄 Re-rendering fallback fields...');
         if (canvas) {
           addFieldsToCanvas(fallbackFields);
         }
-      }, 300);
+      }, 100);
     },
   });
 
@@ -549,11 +542,14 @@ const DocumentEditor: React.FC = () => {
       height: obj.height
     })));
     
-    // Force a repaint
+    // Ensure canvas is properly rendered
+    canvas.renderAll();
+    
+    // Add a small delay to ensure stability
     setTimeout(() => {
-      console.log('🔄 Force repaint...');
+      console.log('🔄 Final render confirmation...');
       canvas.renderAll();
-    }, 100);
+    }, 50);
   };
 
   const addField = (type: DocumentField['type']) => {
