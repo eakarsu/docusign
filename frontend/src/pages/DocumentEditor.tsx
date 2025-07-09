@@ -111,10 +111,10 @@ const DocumentEditor: React.FC = () => {
         console.log('⚠️ No fields detected by AI, creating default fields for multi-page document');
         
         // Create default fields for a 2-page document with signatures on page 2
-        const defaultFields = [
+        const defaultFields: DocumentField[] = [
           {
             id: `default-${Date.now()}-0`,
-            type: 'SIGNATURE',
+            type: 'SIGNATURE' as const,
             label: 'Primary Signature',
             x: 100,
             y: 200,
@@ -125,7 +125,7 @@ const DocumentEditor: React.FC = () => {
           },
           {
             id: `default-${Date.now()}-1`,
-            type: 'DATE',
+            type: 'DATE' as const,
             label: 'Signature Date',
             x: 400,
             y: 200,
@@ -136,7 +136,7 @@ const DocumentEditor: React.FC = () => {
           },
           {
             id: `default-${Date.now()}-2`,
-            type: 'TEXT',
+            type: 'TEXT' as const,
             label: 'Printed Name',
             x: 100,
             y: 300,
@@ -147,7 +147,7 @@ const DocumentEditor: React.FC = () => {
           },
           {
             id: `default-${Date.now()}-3`,
-            type: 'SIGNATURE',
+            type: 'SIGNATURE' as const,
             label: 'Witness Signature',
             x: 100,
             y: 400,
@@ -158,7 +158,7 @@ const DocumentEditor: React.FC = () => {
           },
           {
             id: `default-${Date.now()}-4`,
-            type: 'TEXT',
+            type: 'TEXT' as const,
             label: 'Witness Name',
             x: 400,
             y: 400,
@@ -216,7 +216,7 @@ const DocumentEditor: React.FC = () => {
         
         return {
           id: `ai-${Date.now()}-${index}`,
-          type: field.type || 'SIGNATURE',
+          type: (field.type || 'SIGNATURE') as DocumentField['type'],
           label: field.label || `${field.type || 'SIGNATURE'} Field ${index + 1}`,
           x,
           y,
@@ -247,7 +247,7 @@ const DocumentEditor: React.FC = () => {
       console.error('❌ AI field detection failed:', error);
       
       // Create fallback fields on page 2
-      const fallbackFields = [
+      const fallbackFields: DocumentField[] = [
         {
           id: `fallback-${Date.now()}-0`,
           type: 'SIGNATURE' as const,
