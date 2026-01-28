@@ -15,10 +15,18 @@
     "start:dev": "./start-dev.sh",
     "start:prod": "./start-prod.sh"
   },
-  "keywords": ["docusign", "esignature", "ai", "documents"],
+  "keywords": [
+    "docusign",
+    "esignature",
+    "ai",
+    "documents"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }

@@ -514,10 +514,10 @@ export class AIService {
             "label": "descriptive name like 'Client Signature' or 'Witness Initial'",
             "type": "SIGNATURE" | "INITIAL",
             "required": true/false,
-            "x": estimated x coordinate (0-612 for standard PDF width),
-            "y": estimated y coordinate (0-792 for standard PDF height),
-            "width": suggested field width (typically 200-300 for signatures),
-            "height": suggested field height (typically 40-60 for signatures)
+            "x": estimated x coordinate ,
+            "y": estimated y coordinate ,
+            "width": suggested field width ,
+            "height": suggested field height 
           }
         ]
         
@@ -530,11 +530,8 @@ export class AIService {
         - "Director" signature areas
         
         For coordinates, estimate based on typical document layout:
-        - Page 1 signatures usually appear near bottom (y: 100-200)
-        - Page 2 signatures spread throughout (y: 150-600)
-        - Left margin typically starts at x: 50-100
-        - Signature lines are usually 200-300 pixels wide
-        - Standard PDF page is 612x792 pixels
+        - Page 1 signatures usually appear near bottom 
+        - Page 2 signatures spread throughout
         
         Return only the JSON array, no other text.
       `;
