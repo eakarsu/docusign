@@ -44,11 +44,34 @@ export const authAPI = {
     apiClient.post('/auth/register', userData),
   getProfile: () =>
     apiClient.get('/auth/me'),
+  updateProfile: (data: { firstName?: string; lastName?: string; email?: string }) =>
+    apiClient.put('/auth/profile', data),
+  logout: () =>
+    apiClient.post('/auth/logout'),
+  forgotPassword: (email: string) =>
+    apiClient.post('/auth/forgot-password', { email }),
+  resetPassword: (token: string, newPassword: string) =>
+    apiClient.post('/auth/reset-password', { token, newPassword }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiClient.post('/auth/change-password', { currentPassword, newPassword }),
+  verifyEmail: (token: string) =>
+    apiClient.get(`/auth/verify-email/${token}`),
+  resendVerification: () =>
+    apiClient.post('/auth/resend-verification'),
 };
 
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  status?: string;
+}
+
 export const documentAPI = {
-  getDocuments: () =>
-    apiClient.get('/documents'),
+  getDocuments: (params?: PaginationParams) =>
+    apiClient.get('/documents', { params }),
   getDocument: (id: string) =>
     apiClient.get(`/documents/${id}`),
   uploadDocument: (formData: FormData) =>
@@ -63,17 +86,36 @@ export const documentAPI = {
     apiClient.post(`/documents/${documentId}/sign`, { signatureData }),
   deleteDocument: (documentId: string) =>
     apiClient.delete(`/documents/${documentId}`),
+  bulkDelete: (ids: string[]) =>
+    apiClient.post('/documents/bulk/delete', { ids }),
+  bulkUpdate: (ids: string[], updates: any) =>
+    apiClient.post('/documents/bulk/update', { ids, updates }),
+  exportCSV: (params?: { status?: string }) =>
+    apiClient.get('/documents/export/csv', { params, responseType: 'blob' }),
+  exportPDF: (params?: { status?: string }) =>
+    apiClient.get('/documents/export/pdf', { params }),
 };
 
 export const templateAPI = {
-  getTemplates: () =>
-    apiClient.get('/templates'),
+  getTemplates: (params?: PaginationParams) =>
+    apiClient.get('/templates', { params }),
   createTemplate: (templateData: any) =>
     apiClient.post('/templates', templateData),
   updateTemplate: (id: string, templateData: any) =>
     apiClient.put(`/templates/${id}`, templateData),
   deleteTemplate: (id: string) =>
     apiClient.delete(`/templates/${id}`),
+  exportCSV: () =>
+    apiClient.get('/templates/export/csv', { responseType: 'blob' }),
+};
+
+export const userAPI = {
+  getUsers: (params?: PaginationParams) =>
+    apiClient.get('/users', { params }),
+  getUser: (id: string) =>
+    apiClient.get(`/users/${id}`),
+  exportCSV: () =>
+    apiClient.get('/users/export/csv', { responseType: 'blob' }),
 };
 
 export const aiAPI = {

@@ -1,21 +1,8 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import {
-  Box,
-  Drawer,
-  AppBar,
-  Toolbar,
-  List,
-  Typography,
-  Divider,
-  IconButton,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Avatar,
-  Menu,
-  MenuItem,
+  Box, Drawer, AppBar, Toolbar, List, Typography, Divider, IconButton,
+  ListItem, ListItemButton, ListItemIcon, ListItemText, Avatar, Menu, MenuItem,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -23,10 +10,13 @@ import {
   Description as DocumentIcon,
   Article as TemplateIcon,
   SmartToy as AIIcon,
-  AccountCircle,
+  Person as PersonIcon,
+  Logout as LogoutIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 
 const drawerWidth = 240;
 
@@ -34,7 +24,9 @@ const Layout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
+  const { showSuccess } = useToast();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -50,6 +42,7 @@ const Layout: React.FC = () => {
 
   const handleLogout = () => {
     logout();
+    showSuccess('Logged out successfully');
     handleClose();
   };
 
@@ -58,6 +51,7 @@ const Layout: React.FC = () => {
     { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
     { text: 'Templates', icon: <TemplateIcon />, path: '/templates' },
     { text: 'AI Assistant', icon: <AIIcon />, path: '/ai-assistant' },
+    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
   ];
 
   const drawer = (
@@ -71,7 +65,13 @@ const Layout: React.FC = () => {
       <List>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
-            <ListItemButton onClick={() => navigate(item.path)}>
+            <ListItemButton
+              onClick={() => {
+                navigate(item.path);
+                setMobileOpen(false);
+              }}
+              selected={location.pathname === item.path}
+            >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.text} />
             </ListItemButton>
@@ -119,20 +119,21 @@ const Layout: React.FC = () => {
             <Menu
               id="menu-appbar"
               anchorEl={anchorEl}
-              anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
               keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               open={Boolean(anchorEl)}
               onClose={handleClose}
             >
-              <MenuItem onClick={handleClose}>Profile</MenuItem>
-              <MenuItem onClick={handleLogout}>Logout</MenuItem>
+              <MenuItem onClick={() => { navigate('/profile'); handleClose(); }}>
+                <SettingsIcon sx={{ mr: 1, fontSize: 20 }} />
+                Profile & Settings
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
+                Logout
+              </MenuItem>
             </Menu>
           </div>
         </Toolbar>
@@ -146,9 +147,7 @@ const Layout: React.FC = () => {
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
+          ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: 'block', sm: 'none' },
             '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },

@@ -10,6 +10,7 @@ import swaggerUi from 'swagger-ui-express';
 import path from 'path';
 
 import { errorHandler } from './middleware/errorHandler';
+import { sanitizeInput } from './middleware/validate';
 import { logger } from './utils/logger';
 import authRoutes from './routes/auth';
 import documentRoutes from './routes/documents';
@@ -49,6 +50,7 @@ app.use(cors({
 app.use(limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(sanitizeInput);
 
 // Serve uploaded files statically (including overlay images)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

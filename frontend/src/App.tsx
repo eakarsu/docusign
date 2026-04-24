@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -13,6 +15,9 @@ import DocumentEditor from './pages/DocumentEditor';
 import SignDocument from './pages/SignDocument';
 import Templates from './pages/Templates';
 import AIAssistant from './pages/AIAssistant';
+import Profile from './pages/Profile';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -56,16 +61,19 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/sign/:documentId" element={<SignDocument />} />
-      
+
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="documents" element={<Documents />} />
-        <Route path="documents/new/edit" element={<DocumentEditor />} />
-        <Route path="documents/:id/edit" element={<DocumentEditor />} />
-        <Route path="templates" element={<Templates />} />
-        <Route path="ai-assistant" element={<AIAssistant />} />
+        <Route path="dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+        <Route path="documents" element={<ErrorBoundary><Documents /></ErrorBoundary>} />
+        <Route path="documents/new/edit" element={<ErrorBoundary><DocumentEditor /></ErrorBoundary>} />
+        <Route path="documents/:id/edit" element={<ErrorBoundary><DocumentEditor /></ErrorBoundary>} />
+        <Route path="templates" element={<ErrorBoundary><Templates /></ErrorBoundary>} />
+        <Route path="ai-assistant" element={<ErrorBoundary><AIAssistant /></ErrorBoundary>} />
+        <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
       </Route>
     </Routes>
   );
@@ -77,9 +85,13 @@ const App: React.FC = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>
-          <Router>
-            <AppRoutes />
-          </Router>
+          <ToastProvider>
+            <ErrorBoundary>
+              <Router>
+                <AppRoutes />
+              </Router>
+            </ErrorBoundary>
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

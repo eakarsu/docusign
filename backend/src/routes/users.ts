@@ -5,68 +5,74 @@ import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 const router = express.Router();
 const prisma = new PrismaClient();
 
-/**
- * @swagger
- * /api/users:
- *   get:
- *     summary: Get all users (Admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of users
- *       403:
- *         description: Insufficient permissions
- */
+// Get all users (Admin only, with pagination)
 router.get('/', authenticate, authorize(['ADMIN']), async (req: AuthRequest, res, next) => {
   try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        createdAt: true,
-        isEmailVerified: true
-      },
-      orderBy: {
-        createdAt: 'desc'
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = (req.query.search as string) || '';
+    const role = req.query.role as string;
+    const sortBy = (req.query.sortBy as string) || 'createdAt';
+    const sortOrder = (req.query.sortOrder as string) || 'desc';
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (role && role !== 'all') {
+      where.role = role;
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          createdAt: true,
+          isEmailVerified: true,
+          _count: {
+            select: {
+              sentDocuments: true,
+              signatures: true,
+            }
+          }
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return res.json({
+      data: users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       }
     });
-
-    return res.json(users);
   } catch (error) {
     return next(error);
   }
 });
 
-/**
- * @swagger
- * /api/users/{id}:
- *   get:
- *     summary: Get user by ID
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User details
- *       404:
- *         description: User not found
- */
+// Get user by ID
 router.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const { id } = req.params;
-    
-    // Users can only view their own profile unless they're admin
+
     if (req.user!.role !== 'ADMIN' && req.user!.id !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -80,7 +86,14 @@ router.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
         lastName: true,
         role: true,
         createdAt: true,
-        isEmailVerified: true
+        isEmailVerified: true,
+        _count: {
+          select: {
+            sentDocuments: true,
+            signatures: true,
+            templates: true,
+          }
+        }
       }
     });
 
@@ -89,6 +102,46 @@ router.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
     }
 
     return res.json(user);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// CSV export users (Admin only)
+router.get('/export/csv', authenticate, authorize(['ADMIN']), async (req: AuthRequest, res, next) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isEmailVerified: true,
+        createdAt: true,
+        _count: { select: { sentDocuments: true, signatures: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const headers = ['First Name', 'Last Name', 'Email', 'Role', 'Email Verified', 'Documents Sent', 'Signatures', 'Created At'];
+    const csvRows = [headers.join(',')];
+
+    for (const user of users) {
+      csvRows.push([
+        `"${user.firstName}"`,
+        `"${user.lastName}"`,
+        user.email,
+        user.role,
+        user.isEmailVerified ? 'Yes' : 'No',
+        user._count.sentDocuments,
+        user._count.signatures,
+        new Date(user.createdAt).toISOString(),
+      ].join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=users-export-${Date.now()}.csv`);
+    return res.send(csvRows.join('\n'));
   } catch (error) {
     return next(error);
   }

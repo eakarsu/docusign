@@ -7,6 +7,7 @@ interface User {
   firstName: string;
   lastName: string;
   role: string;
+  isEmailVerified?: boolean;
 }
 
 interface AuthContextType {
@@ -47,15 +48,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loadUser = async () => {
     try {
-      // For demo purposes, set a mock user
-      setUser({
-        id: '1',
-        email: 'demo@example.com',
-        firstName: 'Demo',
-        lastName: 'User',
-        role: 'USER'
-      });
+      const response = await authAPI.getProfile();
+      setUser(response.data.user);
     } catch (error) {
+      // Fallback for demo mode
       localStorage.removeItem('token');
       authAPI.setToken('');
     } finally {
@@ -67,21 +63,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authAPI.login(email, password);
       const { user, token } = response.data;
-      
+
       localStorage.setItem('token', token);
       authAPI.setToken(token);
       setUser(user);
     } catch (error) {
-      // For demo purposes, allow any login
-      localStorage.setItem('token', 'demo-token');
-      authAPI.setToken('demo-token');
-      setUser({
-        id: '1',
-        email,
-        firstName: 'Demo',
-        lastName: 'User',
-        role: 'USER'
-      });
+      throw error;
     }
   };
 
@@ -89,25 +76,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authAPI.register(userData);
       const { user, token } = response.data;
-      
+
       localStorage.setItem('token', token);
       authAPI.setToken(token);
       setUser(user);
     } catch (error) {
-      // For demo purposes, allow any registration
-      localStorage.setItem('token', 'demo-token');
-      authAPI.setToken('demo-token');
-      setUser({
-        id: '1',
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        role: 'USER'
-      });
+      throw error;
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch {
+      // Continue with local cleanup even if API call fails
+    }
     localStorage.removeItem('token');
     authAPI.setToken('');
     setUser(null);

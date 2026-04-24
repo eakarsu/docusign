@@ -2,8 +2,10 @@ import express from 'express';
 import multer from 'multer';
 import { DocumentService } from '../services/documentService';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { PrismaClient } from '@prisma/client';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 // Configure multer for file uploads
 const upload = multer({
@@ -21,47 +23,144 @@ const upload = multer({
   },
 });
 
-/**
- * @swagger
- * /api/documents:
- *   get:
- *     summary: Get all documents for the authenticated user
- *     tags: [Documents]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of documents
- */
+// Get all documents (with pagination)
 router.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const documents = await DocumentService.getDocuments(req.user!.id, req.user!.role);
-    return res.json(documents);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = (req.query.search as string) || '';
+    const status = req.query.status as string;
+    const sortBy = (req.query.sortBy as string) || 'createdAt';
+    const sortOrder = (req.query.sortOrder as string) || 'desc';
+
+    const where: any = req.user!.role === 'ADMIN' ? {} : { senderId: req.user!.id };
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (status && status !== 'all') {
+      where.status = status;
+    }
+
+    const [documents, total] = await Promise.all([
+      prisma.document.findMany({
+        where,
+        include: {
+          sender: {
+            select: { id: true, email: true, firstName: true, lastName: true }
+          },
+          signatures: {
+            select: { id: true, status: true, signerEmail: true, signerName: true, signedAt: true }
+          },
+          _count: { select: { signatures: true } }
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.document.count({ where }),
+    ]);
+
+    return res.json({
+      data: documents,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      }
+    });
   } catch (error) {
     return next(error);
   }
 });
 
-/**
- * @swagger
- * /api/documents/{id}:
- *   get:
- *     summary: Get a specific document
- *     tags: [Documents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Document details
- *       404:
- *         description: Document not found
- */
+// CSV export
+router.get('/export/csv', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const where: any = req.user!.role === 'ADMIN' ? {} : { senderId: req.user!.id };
+    const status = req.query.status as string;
+    if (status && status !== 'all') where.status = status;
+
+    const documents = await prisma.document.findMany({
+      where,
+      include: {
+        sender: { select: { firstName: true, lastName: true, email: true } },
+        _count: { select: { signatures: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const headers = ['Title', 'Description', 'Status', 'Sender', 'Sender Email', 'File Size (KB)', 'Signatures', 'Created At', 'Updated At'];
+    const csvRows = [headers.join(',')];
+
+    for (const doc of documents) {
+      const row = [
+        `"${(doc.title || '').replace(/"/g, '""')}"`,
+        `"${(doc.description || '').replace(/"/g, '""')}"`,
+        doc.status,
+        `"${doc.sender.firstName} ${doc.sender.lastName}"`,
+        doc.sender.email,
+        Math.round(doc.fileSize / 1024),
+        doc._count.signatures,
+        new Date(doc.createdAt).toISOString(),
+        new Date(doc.updatedAt).toISOString(),
+      ];
+      csvRows.push(row.join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=documents-export-${Date.now()}.csv`);
+    return res.send(csvRows.join('\n'));
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// PDF export (JSON for frontend to render)
+router.get('/export/pdf', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const where: any = req.user!.role === 'ADMIN' ? {} : { senderId: req.user!.id };
+    const status = req.query.status as string;
+    if (status && status !== 'all') where.status = status;
+
+    const documents = await prisma.document.findMany({
+      where,
+      include: {
+        sender: { select: { firstName: true, lastName: true, email: true } },
+        signatures: { select: { status: true, signerName: true, signerEmail: true, signedAt: true } },
+        _count: { select: { signatures: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return res.json({
+      title: 'Documents Export',
+      exportDate: new Date().toISOString(),
+      totalDocuments: documents.length,
+      documents: documents.map(doc => ({
+        title: doc.title,
+        description: doc.description,
+        status: doc.status,
+        sender: `${doc.sender.firstName} ${doc.sender.lastName}`,
+        senderEmail: doc.sender.email,
+        fileSizeKB: Math.round(doc.fileSize / 1024),
+        signatureCount: doc._count.signatures,
+        signatures: doc.signatures,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+      })),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Get single document
 router.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const document = await DocumentService.getDocument(req.params.id, req.user!.id, req.user!.role);
@@ -71,32 +170,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
   }
 });
 
-/**
- * @swagger
- * /api/documents/upload:
- *   post:
- *     summary: Upload a new document
- *     tags: [Documents]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               file:
- *                 type: string
- *                 format: binary
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *     responses:
- *       201:
- *         description: Document uploaded successfully
- */
+// Upload document
 router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequest, res, next) => {
   try {
     if (!req.file) {
@@ -115,35 +189,7 @@ router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequ
   }
 });
 
-/**
- * @swagger
- * /api/documents/{id}/fields:
- *   post:
- *     summary: Add fields to a document
- *     tags: [Documents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               fields:
- *                 type: array
- *                 items:
- *                   type: object
- *     responses:
- *       200:
- *         description: Fields added successfully
- */
+// Add fields to document
 router.post('/:id/fields', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const { fields } = req.body;
@@ -158,40 +204,7 @@ router.post('/:id/fields', authenticate, async (req: AuthRequest, res, next) => 
   }
 });
 
-/**
- * @swagger
- * /api/documents/{id}/send:
- *   post:
- *     summary: Send document for signatures
- *     tags: [Documents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               signers:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     email:
- *                       type: string
- *                     name:
- *                       type: string
- *     responses:
- *       200:
- *         description: Document sent successfully
- */
+// Send document for signatures
 router.post('/:id/send', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const { signers } = req.body;
@@ -200,8 +213,7 @@ router.post('/:id/send', authenticate, async (req: AuthRequest, res, next) => {
     }
 
     const result = await DocumentService.sendDocument(req.params.id, signers, req.user!.id);
-    
-    // Emit real-time update
+
     const io = req.app.get('io');
     io.to(`document-${req.params.id}`).emit('document-sent', {
       documentId: req.params.id,
@@ -214,33 +226,7 @@ router.post('/:id/send', authenticate, async (req: AuthRequest, res, next) => {
   }
 });
 
-/**
- * @swagger
- * /api/documents/{id}/sign:
- *   post:
- *     summary: Sign a document
- *     tags: [Documents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               signatureData:
- *                 type: string
- *     responses:
- *       200:
- *         description: Document signed successfully
- */
+// Sign document
 router.post('/:id/sign', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const { signatureData } = req.body;
@@ -256,7 +242,6 @@ router.post('/:id/sign', authenticate, async (req: AuthRequest, res, next) => {
       req.get('User-Agent')
     );
 
-    // Emit real-time update
     const io = req.app.get('io');
     io.to(`document-${req.params.id}`).emit('document-signed', {
       documentId: req.params.id,
@@ -269,28 +254,71 @@ router.post('/:id/sign', authenticate, async (req: AuthRequest, res, next) => {
   }
 });
 
-/**
- * @swagger
- * /api/documents/{id}:
- *   delete:
- *     summary: Delete a document
- *     tags: [Documents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Document deleted successfully
- *       404:
- *         description: Document not found
- *       403:
- *         description: Access denied
- */
+// Bulk delete documents
+router.post('/bulk/delete', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Document IDs are required' });
+    }
+
+    const results = [];
+    for (const id of ids) {
+      try {
+        await DocumentService.deleteDocument(id, req.user!.id, req.user!.role);
+        results.push({ id, success: true });
+      } catch (err: any) {
+        results.push({ id, success: false, error: err.message });
+      }
+    }
+
+    return res.json({ results, deletedCount: results.filter(r => r.success).length });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Bulk update documents (status change)
+router.post('/bulk/update', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const { ids, updates } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Document IDs are required' });
+    }
+    if (!updates || typeof updates !== 'object') {
+      return res.status(400).json({ error: 'Updates object is required' });
+    }
+
+    const allowedUpdates: any = {};
+    if (updates.status) allowedUpdates.status = updates.status;
+    if (updates.description !== undefined) allowedUpdates.description = updates.description;
+
+    const results = [];
+    for (const id of ids) {
+      try {
+        const doc = await prisma.document.findUnique({ where: { id } });
+        if (!doc) {
+          results.push({ id, success: false, error: 'Document not found' });
+          continue;
+        }
+        if (req.user!.role !== 'ADMIN' && doc.senderId !== req.user!.id) {
+          results.push({ id, success: false, error: 'Access denied' });
+          continue;
+        }
+        await prisma.document.update({ where: { id }, data: allowedUpdates });
+        results.push({ id, success: true });
+      } catch (err: any) {
+        results.push({ id, success: false, error: err.message });
+      }
+    }
+
+    return res.json({ results, updatedCount: results.filter(r => r.success).length });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Delete single document
 router.delete('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const result = await DocumentService.deleteDocument(
