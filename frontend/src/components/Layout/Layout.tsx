@@ -10,6 +10,7 @@ import {
   Description as DocumentIcon,
   Article as TemplateIcon,
   SmartToy as AIIcon,
+  AutoAwesome as AIToolsIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
   Settings as SettingsIcon,
@@ -51,6 +52,7 @@ const Layout: React.FC = () => {
     { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
     { text: 'Templates', icon: <TemplateIcon />, path: '/templates' },
     { text: 'AI Assistant', icon: <AIIcon />, path: '/ai-assistant' },
+    { text: 'AI Tools', icon: <AIToolsIcon />, path: '/ai-tools' },
     { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
   ];
 

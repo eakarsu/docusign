@@ -15,6 +15,7 @@ import DocumentEditor from './pages/DocumentEditor';
 import SignDocument from './pages/SignDocument';
 import Templates from './pages/Templates';
 import AIAssistant from './pages/AIAssistant';
+import AITools from './pages/AITools';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -73,6 +74,7 @@ const AppRoutes: React.FC = () => {
         <Route path="documents/:id/edit" element={<ErrorBoundary><DocumentEditor /></ErrorBoundary>} />
         <Route path="templates" element={<ErrorBoundary><Templates /></ErrorBoundary>} />
         <Route path="ai-assistant" element={<ErrorBoundary><AIAssistant /></ErrorBoundary>} />
+        <Route path="ai-tools" element={<ErrorBoundary><AITools /></ErrorBoundary>} />
         <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
       </Route>
     </Routes>

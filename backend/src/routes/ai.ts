@@ -266,4 +266,63 @@ Print Name: _________________________`;
   }
 });
 
+/**
+ * @swagger
+ * /api/ai/compare-versions:
+ *   post:
+ *     summary: Compare two document versions and summarise the diff
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ */
+// Mechanical addition based on audit recommendation:
+// "Automated document comparison (what's different between versions?)"
+router.post('/compare-versions', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const { textA, textB, labelA, labelB } = req.body;
+    if (typeof textA !== 'string' || typeof textB !== 'string') {
+      return res.status(400).json({ error: 'textA and textB are required strings' });
+    }
+    const diff = await AIService.compareDocumentVersions(textA, textB, labelA, labelB);
+    return res.json({ diff });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/ai/suggest-template:
+ *   post:
+ *     summary: Suggest the best template for a given document description
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ */
+// Mechanical addition based on audit recommendation:
+// "Template suggestion based on document type"
+router.post('/suggest-template', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const { description } = req.body;
+    if (typeof description !== 'string' || description.trim().length === 0) {
+      return res.status(400).json({ error: 'description is required' });
+    }
+
+    let templates: Array<{ id: string; name: string; description?: string | null }> = [];
+    try {
+      templates = await prisma.template.findMany({
+        select: { id: true, name: true, description: true },
+        take: 50,
+      });
+    } catch {
+      templates = [];
+    }
+
+    const suggestion = await AIService.suggestTemplate(description, templates);
+    return res.json({ suggestion, considered: templates.length });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 export default router;

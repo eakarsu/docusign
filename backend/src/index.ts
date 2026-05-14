@@ -17,6 +17,7 @@ import documentRoutes from './routes/documents';
 import userRoutes from './routes/users';
 import templateRoutes from './routes/templates';
 import aiRoutes from './routes/ai';
+import customFeaturesRoutes from './routes/customFeatures';
 
 dotenv.config();
 
@@ -83,6 +84,12 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/custom', customFeaturesRoutes);
+// // === Batch 09 Gaps & Frontend Mounts ===
+import batch09GapAiDs from './routes/batch09GapAi.js';
+import batch09GapNonaiDs from './routes/batch09GapNonai.js';
+app.use('/api/gap-ai-docusign', batch09GapAiDs);
+app.use('/api/gap-nonai-docusign', batch09GapNonaiDs);
 
 // Health check
 app.get('/health', (req, res) => {

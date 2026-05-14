@@ -698,4 +698,115 @@ export class AIService {
       return overlays;
     }
   }
+
+  // Audit-driven addition: "Automated document comparison (what's different between versions?)"
+  static async compareDocumentVersions(textA: string, textB: string, labelA = 'Version A', labelB = 'Version B') {
+    try {
+      const prompt = `
+        Compare these two versions of a document and produce a structured diff summary.
+
+        ${labelA}:
+        ${textA}
+
+        ${labelB}:
+        ${textB}
+
+        Respond with strict JSON of the form:
+        {
+          "summary": "<one-paragraph plain-English summary of the changes>",
+          "added_clauses": ["<text>"],
+          "removed_clauses": ["<text>"],
+          "modified_clauses": [{"before": "<text>", "after": "<text>", "impact": "<short description>"}],
+          "risk_level": "low" | "medium" | "high",
+          "risk_reasons": ["<text>"]
+        }
+        Only return JSON.
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: 'openai/gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are an expert legal document diff analyst. Return only valid JSON.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.2,
+      });
+
+      const responseText = response.choices[0]?.message?.content || '';
+      let parsed: any = null;
+      try {
+        const match = responseText.match(/\{[\s\S]*\}/);
+        parsed = match ? JSON.parse(match[0]) : null;
+      } catch {
+        parsed = null;
+      }
+
+      if (!parsed) {
+        return {
+          summary: responseText,
+          added_clauses: [],
+          removed_clauses: [],
+          modified_clauses: [],
+          risk_level: 'unknown',
+          risk_reasons: [],
+        };
+      }
+      return parsed;
+    } catch (error) {
+      console.error('compareDocumentVersions error:', error);
+      throw createError('Failed to compare document versions', 500);
+    }
+  }
+
+  // Audit-driven addition: "Template suggestion based on document type"
+  static async suggestTemplate(description: string, availableTemplates: Array<{ id: string; name: string; description?: string | null }>) {
+    try {
+      const prompt = `
+        A user wants to send the following kind of document:
+        ${description}
+
+        Choose the BEST matching template from this list and explain why.
+        Available templates:
+        ${JSON.stringify(availableTemplates, null, 2)}
+
+        Respond with strict JSON of the form:
+        {
+          "best_template_id": "<id-or-null>",
+          "ranked": [{"template_id": "<id>", "score": 0-100, "reason": "<text>"}],
+          "missing_template_suggestion": "<short suggestion if no good match>"
+        }
+        Only return JSON.
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: 'openai/gpt-4o',
+        messages: [
+          { role: 'system', content: 'You match user document requests to a list of available templates. Return only valid JSON.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.2,
+      });
+
+      const responseText = response.choices[0]?.message?.content || '';
+      let parsed: any = null;
+      try {
+        const match = responseText.match(/\{[\s\S]*\}/);
+        parsed = match ? JSON.parse(match[0]) : null;
+      } catch {
+        parsed = null;
+      }
+
+      if (!parsed) {
+        return {
+          best_template_id: null,
+          ranked: [],
+          missing_template_suggestion: responseText.slice(0, 500),
+        };
+      }
+      return parsed;
+    } catch (error) {
+      console.error('suggestTemplate error:', error);
+      throw createError('Failed to suggest a template', 500);
+    }
+  }
 }

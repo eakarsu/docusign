@@ -129,6 +129,10 @@ export const aiAPI = {
     apiClient.post(`/ai/generate-overlay/${documentId}/${pageNumber}`, {
       pdfImageBase64
     }),
+  compareVersions: (textA: string, textB: string, labelA?: string, labelB?: string) =>
+    apiClient.post('/ai/compare-versions', { textA, textB, labelA, labelB }),
+  suggestTemplate: (description: string) =>
+    apiClient.post('/ai/suggest-template', { description }),
 };
 
 export default apiClient;
