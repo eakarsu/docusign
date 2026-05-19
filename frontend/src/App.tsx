@@ -17,6 +17,7 @@ import Templates from './pages/Templates';
 import AIAssistant from './pages/AIAssistant';
 import AITools from './pages/AITools';
 import Profile from './pages/Profile';
+import CustomViewsPage from './pages/CustomViewsPage';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import './index.css';
@@ -76,6 +77,7 @@ const AppRoutes: React.FC = () => {
         <Route path="ai-assistant" element={<ErrorBoundary><AIAssistant /></ErrorBoundary>} />
         <Route path="ai-tools" element={<ErrorBoundary><AITools /></ErrorBoundary>} />
         <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+        <Route path="custom-views" element={<ErrorBoundary><CustomViewsPage /></ErrorBoundary>} />
       </Route>
     </Routes>
   );
