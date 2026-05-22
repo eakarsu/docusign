@@ -14,6 +14,8 @@ import {
   Person as PersonIcon,
   Logout as LogoutIcon,
   Settings as SettingsIcon,
+  ViewQuilt as ViewQuiltIcon,
+  HowToReg as WitnessIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -53,6 +55,8 @@ const Layout: React.FC = () => {
     { text: 'Templates', icon: <TemplateIcon />, path: '/templates' },
     { text: 'AI Assistant', icon: <AIIcon />, path: '/ai-assistant' },
     { text: 'AI Tools', icon: <AIToolsIcon />, path: '/ai-tools' },
+    { text: 'eSign Views', icon: <ViewQuiltIcon />, path: '/custom-views' },
+    { text: 'Witness Routing', icon: <WitnessIcon />, path: '/witness-routing' },
     { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
   ];
 

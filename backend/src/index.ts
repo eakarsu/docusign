@@ -19,6 +19,7 @@ import templateRoutes from './routes/templates';
 import aiRoutes from './routes/ai';
 import customFeaturesRoutes from './routes/customFeatures';
 import customViewsRoutes from './routes/customViews';
+import witnessRoutingRoutes from './routes/witnessRouting';
 
 dotenv.config();
 
@@ -87,6 +88,7 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/custom', customFeaturesRoutes);
 app.use('/api/custom-views', customViewsRoutes);
+app.use('/api/witness-routing', witnessRoutingRoutes);
 // // === Batch 09 Gaps & Frontend Mounts ===
 import batch09GapAiDs from './routes/batch09GapAi.js';
 import batch09GapNonaiDs from './routes/batch09GapNonai.js';

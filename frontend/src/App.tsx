@@ -18,9 +18,13 @@ import AIAssistant from './pages/AIAssistant';
 import AITools from './pages/AITools';
 import Profile from './pages/Profile';
 import CustomViewsPage from './pages/CustomViewsPage';
+import WitnessRouting from './pages/WitnessRouting';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import './index.css';
+
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +65,9 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
+        <Route path="/codex/custom-viz" element={<ProtectedRoute><CodexCustomVizFeature /></ProtectedRoute>} />
+        <Route path="/codex/operations" element={<ProtectedRoute><CodexOperationsFeature /></ProtectedRoute>} />
+
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -78,6 +85,7 @@ const AppRoutes: React.FC = () => {
         <Route path="ai-tools" element={<ErrorBoundary><AITools /></ErrorBoundary>} />
         <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
         <Route path="custom-views" element={<ErrorBoundary><CustomViewsPage /></ErrorBoundary>} />
+        <Route path="witness-routing" element={<ErrorBoundary><WitnessRouting /></ErrorBoundary>} />
       </Route>
     </Routes>
   );
