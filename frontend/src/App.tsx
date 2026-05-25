@@ -21,6 +21,7 @@ import CustomViewsPage from './pages/CustomViewsPage';
 import WitnessRouting from './pages/WitnessRouting';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import BridgeLogin from './pages/BridgeLogin';
 import './index.css';
 
 import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
@@ -72,6 +73,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/bridge-login" element={<BridgeLogin />} />
       <Route path="/sign/:documentId" element={<SignDocument />} />
 
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
