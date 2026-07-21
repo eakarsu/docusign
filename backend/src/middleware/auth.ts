@@ -1,53 +1,41 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { AuthService } from '../services/authService';
 
 export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
-    role: string;
+    role: 'ADMIN' | 'SENDER' | 'SIGNER' | 'VIEWER';
+    organizationId: string;
+    sessionId: string;
+    privileged: boolean;
   };
 }
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-
-    if (!token) {
-      return res.status(401).json({ error: 'Access denied. No token provided.' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: { id: true, email: true, role: true }
-    });
-
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid token.' });
-    }
-
+    const header = req.header('Authorization');
+    const bearer = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+    const token = bearer || req.cookies?.accessToken;
+    if (!token) return res.status(401).json({ error: 'Authentication required' });
+    const user = await AuthService.authenticate(token);
+    if (!user) return res.status(401).json({ error: 'Invalid, expired, or revoked session' });
     req.user = user;
     return next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid token.' });
+  } catch {
+    return res.status(401).json({ error: 'Invalid, expired, or revoked session' });
   }
 };
 
-export const authorize = (roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Access denied.' });
-    }
+export const authorize = (roles: string[]) => (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'Insufficient permissions' });
+  return next();
+};
 
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions.' });
-    }
-
-    return next();
-  };
+export const requirePrivileged = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user?.privileged || req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Recent MFA-verified administrator session required' });
+  const reason = req.header('X-Privileged-Reason');
+  if (!reason || reason.trim().length < 10) return res.status(400).json({ error: 'X-Privileged-Reason (10+ characters) is required' });
+  return next();
 };

@@ -1,133 +1,27 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import dotenv from 'dotenv';
-import rateLimit from 'express-rate-limit';
-import swaggerJsdoc from 'swagger-jsdoc';
-import swaggerUi from 'swagger-ui-express';
-import path from 'path';
-
-import { errorHandler } from './middleware/errorHandler';
-import { sanitizeInput } from './middleware/validate';
+import 'dotenv/config';
+import { createServer } from 'node:http';
+import { createApp } from './app';
 import { logger } from './utils/logger';
-import authRoutes from './routes/auth';
-import documentRoutes from './routes/documents';
-import userRoutes from './routes/users';
-import templateRoutes from './routes/templates';
-import aiRoutes from './routes/ai';
-import customFeaturesRoutes from './routes/customFeatures';
-import customViewsRoutes from './routes/customViews';
-import witnessRoutingRoutes from './routes/witnessRouting';
 
-dotenv.config();
+const port = Number(process.env.PORT || 3001);
+if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error('VALID_PORT_REQUIRED');
 
-const app = express();
-const server = createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    methods: ['GET', 'POST']
-  }
-});
+const server = createServer(createApp());
+server.listen(port, () => logger.info('Server listening', { port }));
 
-const PORT = process.env.PORT || 3001;
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
-  message: 'Too many requests from this IP, please try again later.'
-});
-
-// Trust proxy for rate limiting
-app.set('trust proxy', 1);
-
-// Middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
-app.use(limiter);
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(sanitizeInput);
-
-// Serve uploaded files statically (including overlay images)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
-// Swagger documentation
-const swaggerOptions = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'DocuSign AI Clone API',
-      version: '1.0.0',
-      description: 'API documentation for DocuSign AI Clone'
-    },
-    servers: [
-      {
-        url: `http://localhost:${PORT}`,
-        description: 'Development server'
-      }
-    ]
-  },
-  apis: ['./src/routes/*.ts']
-};
-
-const specs = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/templates', templateRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/custom', customFeaturesRoutes);
-app.use('/api/custom-views', customViewsRoutes);
-app.use('/api/witness-routing', witnessRoutingRoutes);
-// // === Batch 09 Gaps & Frontend Mounts ===
-import batch09GapAiDs from './routes/batch09GapAi.js';
-import batch09GapNonaiDs from './routes/batch09GapNonai.js';
-app.use('/api/gap-ai-docusign', batch09GapAiDs);
-app.use('/api/gap-nonai-docusign', batch09GapNonaiDs);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
-
-// Socket.io for real-time updates
-io.on('connection', (socket) => {
-  logger.info(`Client connected: ${socket.id}`);
-
-  socket.on('join-document', (documentId: string) => {
-    socket.join(`document-${documentId}`);
-    logger.info(`Client ${socket.id} joined document ${documentId}`);
+let closing = false;
+function shutdown(signal: string) {
+  if (closing) return;
+  closing = true;
+  logger.info('Graceful shutdown started', { signal });
+  const timeout = setTimeout(() => process.exit(1), 10_000);
+  timeout.unref();
+  server.close(error => {
+    clearTimeout(timeout);
+    if (error) logger.error('Graceful shutdown failed', { error });
+    process.exit(error ? 1 : 0);
   });
+}
 
-  socket.on('disconnect', () => {
-    logger.info(`Client disconnected: ${socket.id}`);
-  });
-});
-
-// Make io available to routes
-app.set('io', io);
-
-// Error handling
-app.use(errorHandler);
-
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
-
-server.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-  logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
-});
-
-export { io };
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

@@ -8,12 +8,13 @@ interface User {
   lastName: string;
   role: string;
   isEmailVerified?: boolean;
+  mfaEnabled?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, mfaCode?: string) => Promise<void>;
   register: (userData: any) => Promise<void>;
   logout: () => void;
 }
@@ -37,13 +38,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      authAPI.setToken(token);
-      loadUser();
-    } else {
-      setLoading(false);
-    }
+    loadUser();
   }, []);
 
   const loadUser = async () => {
@@ -51,21 +46,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authAPI.getProfile();
       setUser(response.data.user);
     } catch (error) {
-      // Fallback for demo mode
-      localStorage.removeItem('token');
-      authAPI.setToken('');
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, mfaCode?: string) => {
     try {
-      const response = await authAPI.login(email, password);
-      const { user, token } = response.data;
-
-      localStorage.setItem('token', token);
-      authAPI.setToken(token);
+      const response = await authAPI.login(email, password, mfaCode);
+      const { user } = response.data;
       setUser(user);
     } catch (error) {
       throw error;
@@ -75,10 +65,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (userData: any) => {
     try {
       const response = await authAPI.register(userData);
-      const { user, token } = response.data;
-
-      localStorage.setItem('token', token);
-      authAPI.setToken(token);
+      const { user, verificationRequired } = response.data;
+      if (verificationRequired) throw new Error('Registration succeeded. Verify your email before signing in.');
       setUser(user);
     } catch (error) {
       throw error;
@@ -91,8 +79,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch {
       // Continue with local cleanup even if API call fails
     }
-    localStorage.removeItem('token');
-    authAPI.setToken('');
     setUser(null);
   };
 

@@ -14,18 +14,11 @@ import Documents from './pages/Documents';
 import DocumentEditor from './pages/DocumentEditor';
 import SignDocument from './pages/SignDocument';
 import Templates from './pages/Templates';
-import AIAssistant from './pages/AIAssistant';
 import AITools from './pages/AITools';
 import Profile from './pages/Profile';
-import CustomViewsPage from './pages/CustomViewsPage';
-import WitnessRouting from './pages/WitnessRouting';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import BridgeLogin from './pages/BridgeLogin';
 import './index.css';
-
-import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
-import CodexOperationsFeature from './pages/CodexOperationsFeature';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,14 +59,10 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
-        <Route path="/codex/custom-viz" element={<ProtectedRoute><CodexCustomVizFeature /></ProtectedRoute>} />
-        <Route path="/codex/operations" element={<ProtectedRoute><CodexOperationsFeature /></ProtectedRoute>} />
-
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/bridge-login" element={<BridgeLogin />} />
       <Route path="/sign/:documentId" element={<SignDocument />} />
 
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -83,11 +72,8 @@ const AppRoutes: React.FC = () => {
         <Route path="documents/new/edit" element={<ErrorBoundary><DocumentEditor /></ErrorBoundary>} />
         <Route path="documents/:id/edit" element={<ErrorBoundary><DocumentEditor /></ErrorBoundary>} />
         <Route path="templates" element={<ErrorBoundary><Templates /></ErrorBoundary>} />
-        <Route path="ai-assistant" element={<ErrorBoundary><AIAssistant /></ErrorBoundary>} />
         <Route path="ai-tools" element={<ErrorBoundary><AITools /></ErrorBoundary>} />
         <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
-        <Route path="custom-views" element={<ErrorBoundary><CustomViewsPage /></ErrorBoundary>} />
-        <Route path="witness-routing" element={<ErrorBoundary><WitnessRouting /></ErrorBoundary>} />
       </Route>
     </Routes>
   );

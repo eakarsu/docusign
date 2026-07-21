@@ -1,21 +1,19 @@
-FROM node:18-alpine
-
+FROM node:24.1.0-alpine3.21 AS build
 WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=${VITE_API_URL}
+COPY package.json package-lock.json ./
 RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Build the application
+COPY index.html vite.config.ts ./
+COPY public ./public
+COPY src ./src
+COPY tsconfig.json ./
 RUN npm run build
 
-# Serve the application
-FROM nginx:alpine
-COPY --from=0 /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-
-EXPOSE 3000
+FROM nginx:1.28.0-alpine3.21
+COPY nginx-main.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+USER nginx
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

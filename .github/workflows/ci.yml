@@ -1,0 +1,72 @@
+name: governed-workflow-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.5-alpine3.21
+        env:
+          POSTGRES_USER: docusign
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: docusign_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U docusign -d docusign_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://docusign:ci-only-password@127.0.0.1:5432/docusign_test
+      JWT_SECRET: ci-jwt-secret-at-least-thirty-two-characters
+      AUDIT_SIGNING_KEY: ci-audit-secret-at-least-thirty-two-characters
+      AUDIT_SIGNING_KEY_ID: ci-key-1
+      MFA_ENCRYPTION_KEY: ci-mfa-key-at-least-thirty-two-characters
+      FRONTEND_URL: http://localhost:3000
+      S3_BUCKET: ci-bucket
+      AWS_ACCESS_KEY_ID: ci
+      AWS_SECRET_ACCESS_KEY: ci
+      AWS_REGION: us-east-1
+      MALWARE_SCANNER_URL: http://scanner.invalid/scan
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.1.0
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Backend dependencies and generated client
+        run: npm ci && npm run prisma:generate
+        working-directory: backend
+      - name: Migration deploy and drift check
+        run: |
+          npm run prisma:migrate:deploy
+          npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+        working-directory: backend
+      - name: Backend types, build, tests, and audit
+        run: npm run typecheck && npm run build && npm test -- --runInBand && npm audit --audit-level=high
+        working-directory: backend
+      - name: Frontend types, build, and audit
+        run: npm ci && npm run typecheck && npm run build && npm audit --audit-level=high
+        working-directory: frontend
+      - name: Container builds
+        run: docker build backend && docker build frontend
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

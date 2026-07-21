@@ -14,6 +14,21 @@ enum UserRole {
   VIEWER
 }
 
+enum MatterRole {
+  OWNER
+  COUNSEL
+  PARALEGAL
+  CLIENT
+  WITNESS
+  AUDITOR
+}
+
+enum MatterStatus {
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
 enum DocumentStatus {
   DRAFT
   SENT
@@ -21,12 +36,24 @@ enum DocumentStatus {
   COMPLETED
   CANCELLED
   EXPIRED
+  DELETION_PENDING
+  DELETED
+}
+
+enum LegalReviewStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+  STALE
 }
 
 enum SignatureStatus {
   PENDING
+  DELIVERY_FAILED
   SIGNED
   DECLINED
+  EXPIRED
 }
 
 enum FieldType {
@@ -38,140 +65,490 @@ enum FieldType {
   DROPDOWN
 }
 
+enum ReviewDecision {
+  APPROVED
+  REJECTED
+}
+
+enum AIArtifactStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  STALE
+}
+
+enum IntegrationKind {
+  OCR
+  REDACTION
+  ESIGN_DELIVERY
+  FILING
+  TEMPLATE_SYNC
+  OBJECT_DELETION
+}
+
+enum IntegrationStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  BLOCKED
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  domain      String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+  matters     Matter[]
+  templates   Template[]
+  auditLogs   AuditLog[]
+  aiArtifacts AIArtifact[]
+  jobs        IntegrationJob[]
+  invitations MatterInvitation[]
+
+  @@map("organizations")
+}
+
 model User {
-  id                String    @id @default(uuid())
-  email             String    @unique
-  password          String
-  firstName         String
-  lastName          String
-  role              UserRole  @default(SENDER)
-  isEmailVerified   Boolean   @default(false)
-  emailVerifyToken  String?
-  resetPasswordToken String?
+  id                   String       @id @default(uuid())
+  email                String       @unique
+  password             String
+  firstName            String
+  lastName             String
+  role                 UserRole     @default(SENDER)
+  organizationId       String
+  isActive             Boolean      @default(true)
+  isEmailVerified      Boolean      @default(false)
+  emailVerifyTokenHash String?
+  resetPasswordTokenHash String?
   resetPasswordExpires DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  mfaEnabled           Boolean      @default(false)
+  mfaSecret            String?
+  tokenVersion         Int          @default(1)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  sentDocuments        Document[]   @relation("DocumentSender")
+  signatures           Signature[]
+  auditLogs            AuditLog[]
+  templates            Template[]   @relation("TemplateCreator")
+  reviewedTemplates    Template[]   @relation("TemplateReviewer")
+  matterMemberships    MatterMember[]
+  createdMatters       Matter[]     @relation("MatterCreator")
+  documentVersions     DocumentVersion[]
+  legalReviews         LegalReview[]
+  placedHolds          LegalHold[]  @relation("HoldPlacedBy")
+  releasedHolds        LegalHold[]  @relation("HoldReleasedBy")
+  aiArtifactsCreated   AIArtifact[] @relation("AIArtifactCreator")
+  aiArtifactsReviewed  AIArtifact[] @relation("AIArtifactReviewer")
+  sessions             UserSession[]
+  sentInvitations      MatterInvitation[] @relation("InvitationSender")
 
-  // Relations
-  sentDocuments     Document[] @relation("DocumentSender")
-  signatures        Signature[]
-  auditLogs         AuditLog[]
-  templates         Template[]
-
+  @@index([organizationId, role, isActive])
   @@map("users")
 }
 
-model Document {
-  id              String         @id @default(uuid())
-  title           String
-  description     String?
-  originalFileName String
-  fileUrl         String
-  fileSize        Int
-  mimeType        String
-  status          DocumentStatus @default(DRAFT)
-  senderId        String
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  expiresAt       DateTime?
-  completedAt     DateTime?
+model UserSession {
+  id               String   @id @default(uuid())
+  sessionId        String   @unique
+  userId           String
+  refreshTokenHash String
+  privilegedAt     DateTime?
+  ipAddress        String
+  userAgent        String
+  lastSeenAt       DateTime @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Relations
-  sender          User           @relation("DocumentSender", fields: [senderId], references: [id])
-  fields          DocumentField[]
-  signatures      Signature[]
+  @@index([userId, revokedAt, expiresAt])
+  @@map("user_sessions")
+}
+
+model Matter {
+  id              String       @id @default(uuid())
+  organizationId  String
+  name            String
+  reference       String
+  jurisdiction    String
+  status          MatterStatus @default(ACTIVE)
+  retentionUntil  DateTime
+  legalHoldActive Boolean      @default(false)
+  createdById     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  createdBy       User         @relation("MatterCreator", fields: [createdById], references: [id])
+  members         MatterMember[]
+  documents       Document[]
   auditLogs       AuditLog[]
-  aiAnalysis      AIAnalysis?
+  legalHolds      LegalHold[]
+  aiArtifacts     AIArtifact[]
+  jobs            IntegrationJob[]
+  invitations     MatterInvitation[]
 
+  @@unique([organizationId, reference])
+  @@index([organizationId, status])
+  @@map("matters")
+}
+
+model MatterMember {
+  id        String     @id @default(uuid())
+  matterId  String
+  userId    String
+  role      MatterRole
+  revokedAt DateTime?
+  createdAt DateTime   @default(now())
+  matter    Matter     @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([matterId, userId])
+  @@index([userId, revokedAt])
+  @@map("matter_members")
+}
+
+model MatterInvitation {
+  id             String       @id @default(uuid())
+  organizationId String
+  matterId       String
+  email          String
+  role           MatterRole
+  tokenHash      String       @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  matter         Matter       @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  invitedBy      User         @relation("InvitationSender", fields: [invitedById], references: [id])
+
+  @@index([organizationId, email, acceptedAt, expiresAt])
+  @@map("matter_invitations")
+}
+
+model Document {
+  id                String            @id @default(uuid())
+  matterId          String
+  title             String
+  description       String?
+  originalFileName  String
+  fileUrl           String
+  storageKey        String
+  storageVersionId  String?
+  checksum          String
+  fileSize          Int
+  mimeType          String
+  status            DocumentStatus    @default(DRAFT)
+  senderId          String
+  currentVersion    Int               @default(1)
+  rowVersion        Int               @default(1)
+  provenance        Json
+  jurisdiction      String
+  effectiveDate     DateTime
+  legalReviewStatus LegalReviewStatus @default(PENDING)
+  retentionUntil    DateTime
+  legalHoldActive   Boolean           @default(false)
+  expiresAt         DateTime?
+  completedAt       DateTime?
+  deletionRequestedAt DateTime?
+  deletedAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  matter            Matter            @relation(fields: [matterId], references: [id])
+  sender            User              @relation("DocumentSender", fields: [senderId], references: [id])
+  fields            DocumentField[]
+  signatures        Signature[]
+  versions          DocumentVersion[]
+  auditLogs         AuditLog[]
+  aiAnalysis        AIAnalysis?
+  legalReviews      LegalReview[]
+  aiArtifacts       AIArtifact[]
+  filingReceipts    FilingReceipt[]
+  deletionJobs      DeletionJob[]
+  integrationJobs   IntegrationJob[]
+
+  @@index([matterId, status])
+  @@index([senderId, createdAt])
   @@map("documents")
 }
 
+model DocumentVersion {
+  id               String   @id @default(uuid())
+  documentId       String
+  version          Int
+  storageKey       String
+  storageVersionId String?
+  checksum         String
+  fileSize         Int
+  mimeType         String
+  provenance       Json
+  ocrText          String?
+  ocrProvider      String?
+  ocrVersion       String?
+  createdById      String
+  createdAt        DateTime @default(now())
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy        User     @relation(fields: [createdById], references: [id])
+  legalReviews     LegalReview[]
+
+  @@unique([documentId, version])
+  @@index([checksum])
+  @@map("document_versions")
+}
+
 model DocumentField {
-  id           String    @id @default(uuid())
-  documentId   String
-  type         FieldType
-  label        String
-  x            Float
-  y            Float
-  width        Float
-  height       Float
-  page         Int       @default(1)
-  required     Boolean   @default(true)
-  signerEmail  String?
-  value        String?
-  createdAt    DateTime  @default(now())
+  id              String    @id @default(uuid())
+  documentId      String
+  documentVersion Int
+  type            FieldType
+  label           String
+  x               Float
+  y               Float
+  width           Float
+  height          Float
+  page            Int       @default(1)
+  required        Boolean   @default(true)
+  signerEmail     String?
+  value           String?
+  createdAt       DateTime  @default(now())
+  document        Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
-  // Relations
-  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
+  @@index([documentId, documentVersion])
   @@map("document_fields")
 }
 
 model Signature {
-  id          String          @id @default(uuid())
-  documentId  String
-  signerId    String
-  signerEmail String
-  signerName  String
-  status      SignatureStatus @default(PENDING)
-  signedAt    DateTime?
-  signatureData String?        // Base64 encoded signature image
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime        @default(now())
+  id              String          @id @default(uuid())
+  documentId      String
+  documentVersion Int
+  signerId        String
+  signerEmail     String
+  signerName      String
+  routingOrder    Int             @default(1)
+  status          SignatureStatus @default(PENDING)
+  signedAt        DateTime?
+  declinedAt      DateTime?
+  failureReason   String?
+  signatureData   String?
+  ipAddress       String?
+  userAgent       String?
+  consent         Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  document        Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer          User            @relation(fields: [signerId], references: [id])
 
-  // Relations
-  document    Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  signer      User            @relation(fields: [signerId], references: [id])
-
+  @@unique([documentId, documentVersion, signerEmail])
+  @@index([signerId, status])
   @@map("signatures")
 }
 
 model Template {
-  id          String    @id @default(uuid())
-  name        String
-  description String?
-  creatorId   String
-  fileUrl     String
-  fields      Json      // Serialized field configuration
-  isPublic    Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String       @id @default(uuid())
+  organizationId  String
+  name            String
+  description     String?
+  creatorId       String
+  storageKey      String
+  fileUrl         String
+  checksum        String
+  fields          Json
+  jurisdiction    String
+  authority       String
+  authorityUrl    String
+  sourceVersion   String
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  isPublic        Boolean      @default(false)
+  isAuthoritative Boolean      @default(false)
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  creator         User         @relation("TemplateCreator", fields: [creatorId], references: [id])
+  reviewedBy      User?        @relation("TemplateReviewer", fields: [reviewedById], references: [id])
 
-  // Relations
-  creator     User      @relation(fields: [creatorId], references: [id])
-
+  @@unique([organizationId, authority, sourceVersion])
+  @@index([organizationId, jurisdiction, isAuthoritative, effectiveFrom])
   @@map("templates")
 }
 
 model AIAnalysis {
-  id           String   @id @default(uuid())
-  documentId   String   @unique
-  summary      String?
-  riskAnalysis Json?    // Risk assessment results
-  suggestions  Json?    // AI suggestions for improvement
-  compliance   Json?    // Compliance check results
-  createdAt    DateTime @default(now())
-
-  // Relations
-  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id            String           @id @default(uuid())
+  documentId    String           @unique
+  documentVersion Int
+  provider      String
+  model         String
+  modelVersion  String
+  inputChecksum String
+  outputChecksum String
+  summary       String?
+  riskAnalysis  Json?
+  suggestions   Json?
+  compliance    Json?
+  status        AIArtifactStatus @default(PENDING_REVIEW)
+  reviewerId    String?
+  reviewerRationale String?
+  reviewedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  document      Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@map("ai_analysis")
 }
 
+model AIArtifact {
+  id                String           @id @default(uuid())
+  organizationId    String
+  matterId          String
+  documentId        String?
+  documentVersion   Int?
+  kind              String
+  provider          String
+  model             String
+  modelVersion      String
+  inputChecksum     String
+  outputChecksum    String
+  output            Json
+  jurisdiction      String
+  effectiveDate     DateTime
+  promptDefense     Json
+  status            AIArtifactStatus @default(PENDING_REVIEW)
+  createdById       String
+  reviewedById      String?
+  reviewerRationale String?
+  reviewedAt        DateTime?
+  createdAt         DateTime         @default(now())
+  organization      Organization     @relation(fields: [organizationId], references: [id])
+  matter            Matter           @relation(fields: [matterId], references: [id])
+  document          Document?        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy         User             @relation("AIArtifactCreator", fields: [createdById], references: [id])
+  reviewedBy        User?            @relation("AIArtifactReviewer", fields: [reviewedById], references: [id])
+
+  @@index([matterId, status, createdAt])
+  @@map("ai_artifacts")
+}
+
+model LegalReview {
+  id              String         @id @default(uuid())
+  documentId      String
+  documentVersion Int
+  reviewerId      String
+  decision        ReviewDecision
+  jurisdiction    String
+  effectiveDate   DateTime
+  rationale       String
+  createdAt       DateTime       @default(now())
+  document        Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version         DocumentVersion @relation(fields: [documentId, documentVersion], references: [documentId, version], onDelete: Cascade)
+  reviewer        User           @relation(fields: [reviewerId], references: [id])
+
+  @@unique([documentId, documentVersion])
+  @@index([reviewerId, createdAt])
+  @@map("legal_reviews")
+}
+
+model LegalHold {
+  id           String    @id @default(uuid())
+  matterId     String
+  reason       String
+  reference    String
+  placedById   String
+  placedAt     DateTime  @default(now())
+  releasedById String?
+  releasedAt   DateTime?
+  releaseReason String?
+  matter       Matter    @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  placedBy     User      @relation("HoldPlacedBy", fields: [placedById], references: [id])
+  releasedBy   User?     @relation("HoldReleasedBy", fields: [releasedById], references: [id])
+
+  @@index([matterId, releasedAt])
+  @@map("legal_holds")
+}
+
 model AuditLog {
-  id         String   @id @default(uuid())
-  documentId String?
-  userId     String?
-  action     String
-  details    Json?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
+  id             String       @id @default(uuid())
+  organizationId String
+  matterId       String?
+  documentId     String?
+  userId         String?
+  action         String
+  details        Json
+  ipAddress      String?
+  userAgent      String?
+  previousHash   String?
+  eventHash      String       @unique
+  signature      String
+  signingKeyId   String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  matter         Matter?      @relation(fields: [matterId], references: [id])
+  document       Document?    @relation(fields: [documentId], references: [id])
+  user           User?        @relation(fields: [userId], references: [id])
 
-  // Relations
-  document   Document? @relation(fields: [documentId], references: [id])
-  user       User?     @relation(fields: [userId], references: [id])
-
+  @@index([organizationId, createdAt])
+  @@index([matterId, createdAt])
   @@map("audit_logs")
+}
+
+model IntegrationJob {
+  id             String            @id @default(uuid())
+  organizationId String
+  matterId       String?
+  documentId     String?
+  kind           IntegrationKind
+  status         IntegrationStatus @default(PENDING)
+  requestId      String            @unique
+  provider       String
+  providerVersion String?
+  attempts       Int               @default(0)
+  inputChecksum  String?
+  outputChecksum String?
+  response       Json?
+  error          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  matter         Matter?           @relation(fields: [matterId], references: [id])
+  document       Document?         @relation(fields: [documentId], references: [id])
+
+  @@index([organizationId, kind, status])
+  @@map("integration_jobs")
+}
+
+model FilingReceipt {
+  id               String   @id @default(uuid())
+  documentId       String
+  documentVersion  Int
+  provider         String
+  externalReference String
+  filedAt          DateTime
+  receiptChecksum  String
+  receipt           Json
+  createdAt         DateTime @default(now())
+  document          Document @relation(fields: [documentId], references: [id])
+
+  @@unique([provider, externalReference])
+  @@index([documentId, documentVersion])
+  @@map("filing_receipts")
+}
+
+model DeletionJob {
+  id             String            @id @default(uuid())
+  documentId     String
+  requestedById  String
+  objectKeys     String[]
+  status         IntegrationStatus @default(PENDING)
+  attempts       Int               @default(0)
+  error          String?
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  document       Document          @relation(fields: [documentId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("deletion_jobs")
 }

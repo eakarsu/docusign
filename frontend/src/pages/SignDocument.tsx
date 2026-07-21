@@ -13,6 +13,8 @@ import {
   LinearProgress,
   Chip,
   Divider,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -27,7 +29,7 @@ import { documentAPI } from '../services/api';
 import SignatureCapture from '../components/SignatureCapture';
 
 // Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 const SignDocument: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>();
@@ -39,6 +41,8 @@ const SignDocument: React.FC = () => {
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [currentFieldIndex, setCurrentFieldIndex] = useState<number>(-1);
   const [signedFields, setSignedFields] = useState<Set<string>>(new Set());
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [finalSignature, setFinalSignature] = useState('');
 
   const { data: document, isLoading, error } = useQuery({
     queryKey: ['document', documentId],
@@ -46,9 +50,16 @@ const SignDocument: React.FC = () => {
     enabled: !!documentId,
   });
 
+  const { data: download } = useQuery({
+    queryKey: ['document-download', documentId],
+    queryFn: () => documentAPI.downloadDocument(documentId!),
+    enabled: !!documentId && !!document?.data,
+    staleTime: 4 * 60 * 1000,
+  });
+
   const signDocumentMutation = useMutation({
     mutationFn: (signatureData: string) =>
-      documentAPI.signDocument(documentId!, signatureData),
+      documentAPI.signDocument(documentId!, signatureData, { agreed: consentAccepted, text: 'I agree to use an electronic signature for this document.', timestamp: new Date().toISOString() }),
     onSuccess: () => {
       setCurrentStep(2);
     },
@@ -78,15 +89,13 @@ const SignDocument: React.FC = () => {
     if (currentFieldIndex >= 0) {
       const field = signatureFields[currentFieldIndex];
       setSignedFields(prev => new Set(Array.from(prev).concat([field.id!])));
+      setFinalSignature(signatureData);
       
       // Move to next field or complete if all signed
       if (currentFieldIndex < signatureFields.length - 1) {
         const nextField = signatureFields[currentFieldIndex + 1];
         setCurrentFieldIndex(currentFieldIndex + 1);
         setCurrentPage(nextField.page);
-      } else {
-        // All fields signed, submit document
-        signDocumentMutation.mutate(signatureData);
       }
     }
   };
@@ -204,15 +213,12 @@ const SignDocument: React.FC = () => {
               />
 
               {allFieldsSigned && (
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<CompleteIcon />}
-                  onClick={() => signDocumentMutation.mutate('final-signature')}
-                  disabled={signDocumentMutation.isPending}
-                >
-                  Complete Signing
-                </Button>
+                <Box>
+                  <FormControlLabel control={<Checkbox checked={consentAccepted} onChange={event => setConsentAccepted(event.target.checked)} />} label="I consent to use an electronic signature for this document." />
+                  <Button variant="contained" color="success" startIcon={<CompleteIcon />} onClick={() => signDocumentMutation.mutate(finalSignature)} disabled={!consentAccepted || !finalSignature || signDocumentMutation.isPending}>
+                    Complete Signing
+                  </Button>
+                </Box>
               )}
             </CardContent>
           </Card>
@@ -257,7 +263,7 @@ const SignDocument: React.FC = () => {
           
           <Box sx={{ position: 'relative', display: 'inline-block' }}>
             <Document
-              file={document.data.fileUrl}
+              file={download?.data?.url}
               onLoadSuccess={({ numPages }) => setNumPages(numPages)}
               loading={<Typography>Loading PDF...</Typography>}
             >

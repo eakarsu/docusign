@@ -30,6 +30,9 @@ const Profile: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [mfaEnrollment, setMfaEnrollment] = useState<{ secret: string; otpauthUri: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaPassword, setMfaPassword] = useState('');
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: { firstName?: string; lastName?: string; email?: string }) =>
@@ -67,6 +70,10 @@ const Profile: React.FC = () => {
     },
   });
 
+  const enrollMfaMutation = useMutation({ mutationFn: () => authAPI.enrollMfa(), onSuccess: response => setMfaEnrollment(response.data), onError: (error: any) => showError(error.response?.data?.error || 'Failed to start MFA enrollment') });
+  const confirmMfaMutation = useMutation({ mutationFn: () => authAPI.confirmMfa(mfaCode), onSuccess: () => { showSuccess('MFA enabled'); setMfaEnrollment(null); setMfaCode(''); window.location.reload(); }, onError: (error: any) => showError(error.response?.data?.error || 'Invalid authenticator code') });
+  const disableMfaMutation = useMutation({ mutationFn: () => authAPI.disableMfa(mfaPassword, mfaCode), onSuccess: () => { showSuccess('MFA disabled; sign in again'); window.location.href = '/login'; }, onError: (error: any) => showError(error.response?.data?.error || 'Unable to disable MFA') });
+
   const handleSaveProfile = () => {
     const updates: any = {};
     if (firstName !== user?.firstName) updates.firstName = firstName;
@@ -81,8 +88,8 @@ const Profile: React.FC = () => {
   };
 
   const handleChangePassword = () => {
-    if (newPassword.length < 8) {
-      showError('Password must be at least 8 characters');
+    if (newPassword.length < 12) {
+      showError('Password must be at least 12 characters');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -170,7 +177,7 @@ const Profile: React.FC = () => {
               label="Email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              disabled
               InputProps={{
                 startAdornment: <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />,
               }}
@@ -195,6 +202,25 @@ const Profile: React.FC = () => {
             Change Password
           </Button>
         </Box>
+      </Paper>
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>Multi-factor authentication</Typography>
+        {user?.mfaEnabled ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Alert severity="success">Authenticator MFA is enabled.</Alert>
+            <TextField label="Current password" type="password" value={mfaPassword} onChange={event => setMfaPassword(event.target.value)} />
+            <TextField label="Authenticator code" inputMode="numeric" value={mfaCode} onChange={event => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} />
+            <Button color="error" variant="outlined" disabled={!mfaPassword || mfaCode.length !== 6 || disableMfaMutation.isPending} onClick={() => disableMfaMutation.mutate()}>Disable MFA</Button>
+          </Box>
+        ) : mfaEnrollment ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Alert severity="info">Add this secret to your authenticator, then confirm a current code. Keep the secret private.</Alert>
+            <TextField label="Authenticator secret" value={mfaEnrollment.secret} InputProps={{ readOnly: true }} />
+            <TextField label="Six-digit code" inputMode="numeric" value={mfaCode} onChange={event => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} />
+            <Button variant="contained" disabled={mfaCode.length !== 6 || confirmMfaMutation.isPending} onClick={() => confirmMfaMutation.mutate()}>Confirm MFA</Button>
+          </Box>
+        ) : <Button variant="outlined" disabled={enrollMfaMutation.isPending} onClick={() => enrollMfaMutation.mutate()}>Set up authenticator MFA</Button>}
       </Paper>
 
       {/* Account Stats */}
@@ -254,7 +280,7 @@ const Profile: React.FC = () => {
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            helperText="Minimum 8 characters"
+            helperText="Minimum 12 characters"
             sx={{ mb: 2 }}
           />
           <TextField

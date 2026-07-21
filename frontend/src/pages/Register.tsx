@@ -9,14 +9,17 @@ import {
   Alert,
   Link,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Register: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get('invitation') || undefined;
+  const invitedEmail = searchParams.get('email') || '';
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
+    email: invitedEmail,
     password: '',
     confirmPassword: '',
   });
@@ -49,10 +52,11 @@ const Register: React.FC = () => {
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
+        invitationToken,
       });
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed');
+      setError(err.response?.data?.error || err.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -107,6 +111,7 @@ const Register: React.FC = () => {
               type="email"
               value={formData.email}
               onChange={handleChange}
+              disabled={Boolean(invitationToken)}
             />
             <TextField
               margin="normal"
@@ -117,6 +122,7 @@ const Register: React.FC = () => {
               type="password"
               value={formData.password}
               onChange={handleChange}
+              helperText="12 to 128 characters"
             />
             <TextField
               margin="normal"

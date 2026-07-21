@@ -1,21 +1,13 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
-});
-
-// Request interceptor to add auth token
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
 });
 
 // Response interceptor to handle errors
@@ -23,7 +15,6 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -31,15 +22,8 @@ apiClient.interceptors.response.use(
 );
 
 export const authAPI = {
-  setToken: (token: string) => {
-    if (token) {
-      apiClient.defaults.headers.Authorization = `Bearer ${token}`;
-    } else {
-      delete apiClient.defaults.headers.Authorization;
-    }
-  },
-  login: (email: string, password: string) =>
-    apiClient.post('/auth/login', { email, password }),
+  login: (email: string, password: string, mfaCode?: string) =>
+    apiClient.post('/auth/login', { email, password, ...(mfaCode && { mfaCode }) }),
   register: (userData: any) =>
     apiClient.post('/auth/register', userData),
   getProfile: () =>
@@ -58,6 +42,10 @@ export const authAPI = {
     apiClient.get(`/auth/verify-email/${token}`),
   resendVerification: () =>
     apiClient.post('/auth/resend-verification'),
+  enrollMfa: () => apiClient.post('/auth/mfa/enroll'),
+  confirmMfa: (code: string) => apiClient.post('/auth/mfa/confirm', { code }),
+  stepUpMfa: (code: string) => apiClient.post('/auth/mfa/step-up', { code }),
+  disableMfa: (password: string, code: string) => apiClient.post('/auth/mfa/disable', { password, code }),
 };
 
 export interface PaginationParams {
@@ -82,8 +70,12 @@ export const documentAPI = {
     apiClient.post(`/documents/${documentId}/fields`, { fields }),
   sendDocument: (documentId: string, signers: any[]) =>
     apiClient.post(`/documents/${documentId}/send`, { signers }),
-  signDocument: (documentId: string, signatureData: string) =>
-    apiClient.post(`/documents/${documentId}/sign`, { signatureData }),
+  reviewDocument: (documentId: string, data: { decision: 'APPROVED' | 'REJECTED'; jurisdiction: string; effectiveDate: string; rationale: string }) =>
+    apiClient.post(`/documents/${documentId}/legal-review`, data),
+  signDocument: (documentId: string, signatureData: string, consent: { agreed: boolean; text: string; timestamp: string }) =>
+    apiClient.post(`/documents/${documentId}/sign`, { signatureData, consent }),
+  downloadDocument: (documentId: string) =>
+    apiClient.get(`/documents/${documentId}/download`),
   deleteDocument: (documentId: string) =>
     apiClient.delete(`/documents/${documentId}`),
   bulkDelete: (ids: string[]) =>
@@ -109,6 +101,13 @@ export const templateAPI = {
     apiClient.get('/templates/export/csv', { responseType: 'blob' }),
 };
 
+export const matterAPI = {
+  list: () => apiClient.get('/matters'),
+  invite: (matterId: string, email: string, role: string) => apiClient.post(`/matters/${matterId}/invitations`, { email, role }),
+  addMember: (matterId: string, userId: string, role: string) => apiClient.post(`/matters/${matterId}/members`, { userId, role }),
+  revokeMember: (matterId: string, userId: string) => apiClient.delete(`/matters/${matterId}/members/${userId}`),
+};
+
 export const userAPI = {
   getUsers: (params?: PaginationParams) =>
     apiClient.get('/users', { params }),
@@ -129,8 +128,8 @@ export const aiAPI = {
     apiClient.post(`/ai/generate-overlay/${documentId}/${pageNumber}`, {
       pdfImageBase64
     }),
-  compareVersions: (textA: string, textB: string, labelA?: string, labelB?: string) =>
-    apiClient.post('/ai/compare-versions', { textA, textB, labelA, labelB }),
+  compareVersions: (documentId: string, fromVersion: number, toVersion: number) =>
+    apiClient.post('/ai/compare-versions', { documentId, fromVersion, toVersion }),
   suggestTemplate: (description: string) =>
     apiClient.post('/ai/suggest-template', { description }),
 };

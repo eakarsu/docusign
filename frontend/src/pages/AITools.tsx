@@ -23,10 +23,9 @@ const AITools: React.FC = () => {
   const [tab, setTab] = useState(0);
 
   // compare-versions state
-  const [textA, setTextA] = useState('');
-  const [textB, setTextB] = useState('');
-  const [labelA, setLabelA] = useState('');
-  const [labelB, setLabelB] = useState('');
+  const [documentId, setDocumentId] = useState('');
+  const [fromVersion, setFromVersion] = useState('1');
+  const [toVersion, setToVersion] = useState('2');
 
   // suggest-template state
   const [description, setDescription] = useState('');
@@ -42,13 +41,13 @@ const AITools: React.FC = () => {
 
   const handleCompare = async () => {
     reset();
-    if (!textA.trim() || !textB.trim()) {
-      setError('Both Version A text and Version B text are required.');
+    if (!documentId.trim() || !Number.isInteger(Number(fromVersion)) || !Number.isInteger(Number(toVersion)) || fromVersion === toVersion) {
+      setError('A document ID and two distinct integer versions are required.');
       return;
     }
     setLoading(true);
     try {
-      const res = await aiAPI.compareVersions(textA, textB, labelA || undefined, labelB || undefined);
+      const res = await aiAPI.compareVersions(documentId.trim(), Number(fromVersion), Number(toVersion));
       setResult(res.data);
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Request failed.');
@@ -102,41 +101,23 @@ const AITools: React.FC = () => {
               {tab === 0 && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
-                    label="Label A (optional)"
-                    value={labelA}
-                    onChange={(e) => setLabelA(e.target.value)}
-                    placeholder="e.g. Draft v1"
-                    fullWidth
-                    disabled={loading}
-                  />
-                  <TextField
-                    label="Version A text"
-                    value={textA}
-                    onChange={(e) => setTextA(e.target.value)}
-                    multiline
-                    rows={6}
+                    label="Document ID"
+                    value={documentId}
+                    onChange={(e) => setDocumentId(e.target.value)}
                     fullWidth
                     disabled={loading}
                     required
                   />
                   <TextField
-                    label="Label B (optional)"
-                    value={labelB}
-                    onChange={(e) => setLabelB(e.target.value)}
-                    placeholder="e.g. Draft v2"
-                    fullWidth
-                    disabled={loading}
-                  />
-                  <TextField
-                    label="Version B text"
-                    value={textB}
-                    onChange={(e) => setTextB(e.target.value)}
-                    multiline
-                    rows={6}
-                    fullWidth
+                    label="From version"
+                    type="number"
+                    value={fromVersion}
+                    onChange={(e) => setFromVersion(e.target.value)}
+                    inputProps={{ min: 1, step: 1 }}
                     disabled={loading}
                     required
                   />
+                  <TextField label="To version" type="number" value={toVersion} onChange={(e) => setToVersion(e.target.value)} inputProps={{ min: 1, step: 1 }} disabled={loading} required />
                   <Button
                     variant="contained"
                     onClick={handleCompare}

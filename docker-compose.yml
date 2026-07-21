@@ -1,59 +1,115 @@
-version: '3.8'
-
 services:
   postgres:
-    image: postgres:15
+    image: postgres:17.5-alpine3.21
     environment:
-      POSTGRES_DB: docusign_ai
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: docusign
+      POSTGRES_USER: docusign
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docusign -d docusign"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+  object-storage:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - object_data:/data
+    restart: unless-stopped
+
+  object-storage-init:
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      object-storage:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET}
+    entrypoint: ["/bin/sh", "-ec"]
+    command: ["mc alias set local http://object-storage:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; mc mb --ignore-existing local/$$S3_BUCKET; mc version enable local/$$S3_BUCKET"]
+    restart: "no"
+
+  migrate:
+    build: ./backend
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment: &backend-environment
+      NODE_ENV: production
+      DATABASE_URL: postgresql://docusign:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/docusign
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (32+ characters)}
+      AUDIT_SIGNING_KEY: ${AUDIT_SIGNING_KEY:?set AUDIT_SIGNING_KEY (32+ characters)}
+      AUDIT_SIGNING_KEY_ID: ${AUDIT_SIGNING_KEY_ID:?set AUDIT_SIGNING_KEY_ID}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?set MFA_ENCRYPTION_KEY (32+ characters)}
+      FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL}
+      REQUIRE_EMAIL_VERIFICATION: "true"
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+      AWS_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET}
+      S3_ENDPOINT: http://object-storage:9000
+      MALWARE_SCANNER_URL: ${MALWARE_SCANNER_URL:?set MALWARE_SCANNER_URL}
+      MALWARE_SCANNER_HEALTH_URL: ${MALWARE_SCANNER_HEALTH_URL:?set MALWARE_SCANNER_HEALTH_URL}
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:?set SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS:?set SMTP_PASS}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:?set OPENROUTER_MODEL}
+      OPENROUTER_MODEL_VERSION: ${OPENROUTER_MODEL_VERSION:?set OPENROUTER_MODEL_VERSION}
+      OCR_ENDPOINT: ${OCR_ENDPOINT:?set OCR_ENDPOINT}
+      OCR_API_KEY: ${OCR_API_KEY:?set OCR_API_KEY}
+      REDACTION_ENDPOINT: ${REDACTION_ENDPOINT:?set REDACTION_ENDPOINT}
+      REDACTION_API_KEY: ${REDACTION_API_KEY:?set REDACTION_API_KEY}
+      FILING_ENDPOINT: ${FILING_ENDPOINT:?set FILING_ENDPOINT}
+      FILING_API_KEY: ${FILING_API_KEY:?set FILING_API_KEY}
+      TEMPLATE_REGISTRY_ENDPOINT: ${TEMPLATE_REGISTRY_ENDPOINT:?set TEMPLATE_REGISTRY_ENDPOINT}
+      TEMPLATE_REGISTRY_API_KEY: ${TEMPLATE_REGISTRY_API_KEY:?set TEMPLATE_REGISTRY_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
-    environment:
-      - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/docusign_ai
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=your-jwt-secret-key
-      - OPENAI_API_KEY=your-openai-api-key
-      - AWS_ACCESS_KEY_ID=your-aws-key
-      - AWS_SECRET_ACCESS_KEY=your-aws-secret
-      - AWS_REGION=us-east-1
-      - S3_BUCKET=docusign-ai-documents
+    build: ./backend
+    environment: *backend-environment
     depends_on:
-      - postgres
-      - redis
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+      postgres:
+        condition: service_healthy
+      object-storage-init:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:3001/api
+      args:
+        VITE_API_URL: /api
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    read_only: true
+    tmpfs: [/var/cache/nginx, /var/run]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  object_data:

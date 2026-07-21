@@ -1,328 +1,48 @@
-import express from 'express';
-import { AIService } from '../services/aiService';
+import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { PrismaClient } from '@prisma/client';
+import { AIService } from '../services/aiService';
+import { DocumentActor } from '../services/documentService';
 
-const prisma = new PrismaClient();
+const router = Router();
+const service = new AIService();
+router.use(authenticate);
+const actor = (req: AuthRequest): DocumentActor => req.user!;
 
-const router = express.Router();
-
-/**
- * @swagger
- * /api/ai/analyze/{documentId}:
- *   post:
- *     summary: Analyze a document with AI
- *     tags: [AI]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: documentId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Document analysis completed
- */
-router.post('/analyze/:documentId', authenticate, async (req: AuthRequest, res, next) => {
-  try {
-    // In a real implementation, you would extract text from the document
-    // For now, we'll use a placeholder
-    const documentText = "Sample document text for analysis";
-    
-    const analysis = await AIService.analyzeDocument(req.params.documentId, documentText);
-    return res.json(analysis);
-  } catch (error) {
-    return next(error);
-  }
+router.post('/analyze/:documentId', async (req: AuthRequest, res, next) => {
+  try { return res.status(202).json(await service.analyzeDocument(req.params.documentId, actor(req))); }
+  catch (error) { return next(error); }
 });
 
-/**
- * @swagger
- * /api/ai/generate-contract:
- *   post:
- *     summary: Generate a contract using AI
- *     tags: [AI]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               prompt:
- *                 type: string
- *               contractType:
- *                 type: string
- *     responses:
- *       200:
- *         description: Contract generated successfully
- */
-router.post('/generate-contract', authenticate, async (req: AuthRequest, res, next) => {
+router.post('/generate-contract', async (req: AuthRequest, res, next) => {
   try {
-    const { prompt, contractType } = req.body;
-    
-    if (!prompt || !contractType) {
-      return res.status(400).json({ error: 'Prompt and contract type are required' });
-    }
-
-    const contract = await AIService.generateContract(prompt, contractType);
-    return res.json({ contract });
-  } catch (error) {
-    return next(error);
-  }
+    const effectiveDate = new Date(req.body.effectiveDate);
+    if (!req.body.matterId || !req.body.prompt || !req.body.contractType || !req.body.templateId || !req.body.jurisdiction || !Number.isFinite(effectiveDate.getTime())) return res.status(400).json({ error: 'matterId, prompt, contractType, templateId, jurisdiction and effectiveDate are required' });
+    return res.status(202).json(await service.generateContract(actor(req), { matterId: req.body.matterId, prompt: req.body.prompt, contractType: req.body.contractType, templateId: req.body.templateId, jurisdiction: req.body.jurisdiction, effectiveDate }));
+  } catch (error) { return next(error); }
 });
 
-/**
- * @swagger
- * /api/ai/generate-overlay/{documentId}/{pageNumber}:
- *   post:
- *     summary: Generate signature overlay image for a PDF page using AI vision
- *     tags: [AI]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: documentId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: pageNumber
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               pdfImageBase64:
- *                 type: string
- *                 description: Base64 encoded PNG image of the PDF page
- *     responses:
- *       200:
- *         description: Overlay image generated successfully
- */
-router.post('/generate-overlay/:documentId/:pageNumber', authenticate, async (req: AuthRequest, res, next) => {
+router.post('/artifacts/:id/review', async (req: AuthRequest, res, next) => {
   try {
-    const { pdfImageBase64 } = req.body;
-    const pageNumber = parseInt(req.params.pageNumber);
-    
-    if (!pdfImageBase64) {
-      return res.status(400).json({ error: 'PDF image data is required' });
-    }
-    
-    console.log('🤖 AI generate-overlay route called for document:', req.params.documentId, 'page:', pageNumber);
-    
-    const result = await AIService.generateSignatureOverlayImage(
-      req.params.documentId, 
-      pageNumber, 
-      pdfImageBase64
-    );
-    
-    console.log('🤖 AI service returned overlay result:', {
-      hasOverlayImage: !!result.overlayImage,
-      savedImagePath: result.savedImagePath,
-      signatureFieldsCount: result.signatureFields.length
-    });
-    
-    return res.json({ 
-      success: true,
-      data: result,
-      overlayImage: result.overlayImage,
-      savedImagePath: result.savedImagePath,
-      signatureFields: result.signatureFields
-    });
-  } catch (error) {
-    console.error('❌ AI generate-overlay error:', error);
-    return next(error);
-  }
+    if (!['APPROVED', 'REJECTED'].includes(req.body.decision)) return res.status(400).json({ error: 'decision must be APPROVED or REJECTED' });
+    return res.json(await service.reviewArtifact(req.params.id, actor(req), req.body.decision, String(req.body.rationale || '')));
+  } catch (error) { return next(error); }
 });
 
-/**
- * @swagger
- * /api/ai/detect-fields/{documentId}:
- *   post:
- *     summary: Detect fields in a document using AI (legacy method)
- *     tags: [AI]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: documentId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Fields detected successfully
- */
-router.post('/detect-fields/:documentId', authenticate, async (req: AuthRequest, res, next) => {
+router.post('/compare-versions', async (req: AuthRequest, res, next) => {
   try {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
-    // Get the document from database
-    const document = await prisma.document.findUnique({
-      where: { id: req.params.documentId },
-      include: { sender: true }
-    });
-    
-    if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
-    }
-    
-    // Check if user has access to this document
-    if (document.senderId !== req.user!.id && req.user!.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    // For now, we'll simulate the actual PDF content that would be extracted
-    // In a real implementation, you would extract text from the PDF file using pdf-parse or similar
-    const documentText = `${document.title}\n${document.description || ''}\n
-    
-PARTIES:
-Client: [CLIENT_NAME]
-Service Provider: [PROVIDER_NAME]
-
-TERMS:
-1. The service provider agrees to provide the following services:
-   - Web development services
-   - Technical support
-   - Maintenance and updates
-
-2. Payment terms: Net 30 days
-
-3. This agreement shall remain in effect for one (1) year.
-
-4. Additional terms and conditions apply as outlined below.
-
-INITIAL SIGNATURES (Page 1):
-
-Client Initial: _________________________ Date: _________
-
-Provider Initial: _______________________ Date: _________
-
-ADDITIONAL TERMS AND CONDITIONS - PAGE 2
-
-4. Liability and Indemnification:
-   - Service provider liability is limited to the contract value
-   - Client agrees to indemnify provider against third-party claims
-
-5. Termination:
-   - Either party may terminate with 30 days written notice
-   - All work completed up to termination date will be paid
-
-6. Intellectual Property:
-   - All work product belongs to the client upon full payment
-   - Provider retains rights to general methodologies and know-how
-
-7. Governing Law:
-   - This agreement shall be governed by applicable state laws
-   - Any disputes shall be resolved through binding arbitration
-
-FINAL SIGNATURES (Page 2):
-
-By signing below, both parties agree to all terms and conditions
-outlined in this Service Agreement.
-
-CLIENT:
-Full Signature: _________________________ Date: _________
-Print Name: _________________________
-Title: _________________________
-
-SERVICE PROVIDER:
-Full Signature: _________________________ Date: _________
-Print Name: _________________________
-Title: _________________________
-
-WITNESS (if required):
-Signature: _________________________ Date: _________
-Print Name: _________________________`;
-    
-    console.log('🤖 AI detect-fields route called for document:', req.params.documentId);
-    console.log('🤖 Document text length:', documentText.length);
-    
-    const overlays = await AIService.detectSignatureOverlays(documentText);
-    
-    console.log('🤖 AI service returned signature overlays:', overlays);
-    console.log('🤖 Overlays count:', overlays.length);
-    
-    return res.json({ 
-      success: true,
-      data: overlays,
-      overlays: overlays,
-      fields: overlays // Include for compatibility
-    });
-  } catch (error) {
-    console.error('❌ AI detect-fields error:', error);
-    return next(error);
-  }
+    const fromVersion = Number(req.body.fromVersion); const toVersion = Number(req.body.toVersion);
+    if (!req.body.documentId || !Number.isInteger(fromVersion) || !Number.isInteger(toVersion) || fromVersion === toVersion) return res.status(400).json({ error: 'documentId and two distinct integer versions are required' });
+    return res.json(await service.compareVersions(req.body.documentId, fromVersion, toVersion, actor(req)));
+  } catch (error) { return next(error); }
 });
 
-/**
- * @swagger
- * /api/ai/compare-versions:
- *   post:
- *     summary: Compare two document versions and summarise the diff
- *     tags: [AI]
- *     security:
- *       - bearerAuth: []
- */
-// Mechanical addition based on audit recommendation:
-// "Automated document comparison (what's different between versions?)"
-router.post('/compare-versions', authenticate, async (req: AuthRequest, res, next) => {
+router.post('/suggest-template', async (req: AuthRequest, res, next) => {
   try {
-    const { textA, textB, labelA, labelB } = req.body;
-    if (typeof textA !== 'string' || typeof textB !== 'string') {
-      return res.status(400).json({ error: 'textA and textB are required strings' });
-    }
-    const diff = await AIService.compareDocumentVersions(textA, textB, labelA, labelB);
-    return res.json({ diff });
-  } catch (error) {
-    return next(error);
-  }
+    if (!String(req.body.description || '').trim()) return res.status(400).json({ error: 'description is required' });
+    return res.json(await service.suggestTemplate(String(req.body.description), actor(req)));
+  } catch (error) { return next(error); }
 });
 
-/**
- * @swagger
- * /api/ai/suggest-template:
- *   post:
- *     summary: Suggest the best template for a given document description
- *     tags: [AI]
- *     security:
- *       - bearerAuth: []
- */
-// Mechanical addition based on audit recommendation:
-// "Template suggestion based on document type"
-router.post('/suggest-template', authenticate, async (req: AuthRequest, res, next) => {
-  try {
-    const { description } = req.body;
-    if (typeof description !== 'string' || description.trim().length === 0) {
-      return res.status(400).json({ error: 'description is required' });
-    }
-
-    let templates: Array<{ id: string; name: string; description?: string | null }> = [];
-    try {
-      templates = await prisma.template.findMany({
-        select: { id: true, name: true, description: true },
-        take: 50,
-      });
-    } catch {
-      templates = [];
-    }
-
-    const suggestion = await AIService.suggestTemplate(description, templates);
-    return res.json({ suggestion, considered: templates.length });
-  } catch (error) {
-    return next(error);
-  }
-});
+router.all(['/detect-fields/:documentId', '/generate-overlay/:documentId/:pageNumber'], (_req, res) => res.status(410).json({ error: 'Legacy simulated AI field detection is disabled; configure deterministic fields on a reviewed document version.' }));
 
 export default router;

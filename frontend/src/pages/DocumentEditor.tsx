@@ -31,7 +31,6 @@ import {
   CheckBox as CheckboxIcon,
   Send as SendIcon,
   Save as SaveIcon,
-  SmartToy as AIIcon,
   ZoomIn,
   ZoomOut,
 } from '@mui/icons-material';
@@ -39,13 +38,13 @@ import SignatureCapture from '../components/SignatureCapture';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { fabric } from 'fabric';
-import { documentAPI, aiAPI } from '../services/api';
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
+import { Canvas, Rect, FabricText, Shadow } from 'fabric';
+import { documentAPI, matterAPI } from '../services/api';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 
 // Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 interface DocumentField {
   id?: string;
@@ -72,7 +71,7 @@ const DocumentEditor: React.FC = () => {
   const [scale, setScale] = useState<number>(1.0);
   const [selectedTool, setSelectedTool] = useState<string>('');
   const [fields, setFields] = useState<DocumentField[]>([]);
-  const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
+  const [canvas, setCanvas] = useState<Canvas | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
@@ -80,6 +79,9 @@ const DocumentEditor: React.FC = () => {
   const [signers, setSigners] = useState<Array<{ email: string; name: string }>>([
     { email: '', name: '' }
   ]);
+  const [reviewRationale, setReviewRationale] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('CLIENT');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -87,6 +89,13 @@ const DocumentEditor: React.FC = () => {
     queryKey: ['document', id],
     queryFn: () => documentAPI.getDocument(id!),
     enabled: !!id,
+  });
+
+  const { data: download } = useQuery({
+    queryKey: ['document-download', id],
+    queryFn: () => documentAPI.downloadDocument(id!),
+    enabled: !!id && !!document?.data,
+    staleTime: 4 * 60 * 1000,
   });
 
   const saveFieldsMutation = useMutation({
@@ -104,188 +113,15 @@ const DocumentEditor: React.FC = () => {
     },
   });
 
-  const detectFieldsMutation = useMutation({
-    mutationFn: async () => {
-      // First, capture the current PDF page as an image
-      const pdfPageImage = await capturePDFPageAsImage(currentPage);
-      
-      if (!pdfPageImage) {
-        throw new Error('Failed to capture PDF page image');
-      }
-      
-      // Send the image to AI for overlay generation
-      return aiAPI.generateOverlay(id!, currentPage, pdfPageImage);
-    },
-    onSuccess: (data) => {
-      console.log('🤖 AI Overlay Generation Response:', data);
-      console.log('🤖 AI generated overlay data:', data.data);
-      
-      const result = data.data;
-      if (result.overlayImage) {
-        // Display the overlay image on top of the PDF
-        displayOverlayImage(result.overlayImage, result.signatureFields);
-      } else {
-        // Fallback to manual field placement
-        const signatureFields = result.signatureFields || [];
-        console.log('🤖 Using signature fields from AI:', signatureFields);
-        setFields(signatureFields);
-        
-        // Re-render fields
-        setTimeout(() => {
-          if (canvas) {
-            addFieldsToCanvas(signatureFields);
-          }
-        }, 100);
-      }
-    },
-    onError: (error) => {
-      console.error('❌ AI overlay generation failed:', error);
-      // Create fallback fields
-      createFallbackFields();
-    }
+  const legalReviewMutation = useMutation({
+    mutationFn: (decision: 'APPROVED' | 'REJECTED') => documentAPI.reviewDocument(id!, { decision, jurisdiction: document!.data.jurisdiction, effectiveDate: document!.data.effectiveDate, rationale: reviewRationale }),
+    onSuccess: () => { setReviewRationale(''); queryClient.invalidateQueries({ queryKey: ['document', id] }); },
   });
 
-  const capturePDFPageAsImage = async (pageNumber: number): Promise<string> => {
-    return new Promise((resolve) => {
-      // Find the PDF page canvas element
-      const pdfPageElement = window.document.querySelector('.react-pdf__Page__canvas') as HTMLCanvasElement;
-      
-      if (pdfPageElement) {
-        try {
-          // Convert canvas to base64 image
-          const imageData = pdfPageElement.toDataURL('image/png');
-          const base64Data = imageData.split(',')[1]; // Remove data:image/png;base64, prefix
-          console.log('📸 Captured PDF page image (length):', base64Data.length);
-          resolve(base64Data);
-        } catch (error) {
-          console.error('Error capturing PDF page:', error);
-          resolve('');
-        }
-      } else {
-        console.error('Could not find PDF page canvas element');
-        resolve(''); // Return empty string as fallback
-      }
-    });
-  };
-
-  const displayOverlayImage = (overlayImageBase64: string, signatureFields: any[]) => {
-    console.log('🎨 Displaying overlay image with signature fields:', signatureFields);
-    
-    if (!canvas) {
-      console.error('Canvas not available for overlay display');
-      return;
-    }
-    
-    // Create an image element for the overlay
-    const overlayImg = new Image();
-    overlayImg.onload = () => {
-      try {
-        // Clear existing canvas
-        canvas.clear();
-        
-        // Add overlay image to canvas
-        const fabricImage = new fabric.Image(overlayImg, {
-          left: 0,
-          top: 0,
-          selectable: false,
-          evented: false,
-          opacity: 0.9, // Slightly transparent so PDF shows through
-        });
-        
-        canvas.add(fabricImage);
-        
-        // Add invisible click areas for signature fields
-        signatureFields.forEach((field, index) => {
-          const clickArea = new fabric.Rect({
-            left: field.x,
-            top: field.y,
-            width: field.width,
-            height: field.height,
-            fill: 'transparent',
-            stroke: 'transparent',
-            selectable: false,
-            evented: true,
-            hoverCursor: 'pointer',
-          });
-          
-          clickArea.on('mousedown', () => {
-            console.log('🖊️ Overlay signature area clicked:', field.label);
-            setSelectedFieldForSigning(field);
-            setSignatureDialogOpen(true);
-          });
-          
-          canvas.add(clickArea);
-        });
-        
-        canvas.renderAll();
-        setFields(signatureFields);
-        
-        console.log('✅ Overlay image displayed successfully');
-      } catch (error) {
-        console.error('Error displaying overlay image:', error);
-        // Fallback to regular field rendering
-        setFields(signatureFields);
-        setTimeout(() => {
-          if (canvas) {
-            addFieldsToCanvas(signatureFields);
-          }
-        }, 100);
-      }
-    };
-    
-    overlayImg.onerror = (error) => {
-      console.error('Error loading overlay image:', error);
-      // Fallback to regular field rendering
-      setFields(signatureFields);
-      setTimeout(() => {
-        if (canvas) {
-          addFieldsToCanvas(signatureFields);
-        }
-      }, 100);
-    };
-    
-    overlayImg.src = overlayImageBase64;
-  };
-
-  const createFallbackFields = () => {
-    console.log('🔄 Creating fallback signature fields');
-    
-    // Create fallback fields on current page
-    const fallbackFields: DocumentField[] = [
-      {
-        id: `fallback-${Date.now()}-0`,
-        type: 'SIGNATURE' as const,
-        label: 'Primary Signature',
-        x: 100,
-        y: 200,
-        width: 250,
-        height: 60,
-        page: currentPage,
-        required: true,
-      },
-      {
-        id: `fallback-${Date.now()}-1`,
-        type: 'DATE' as const,
-        label: 'Date',
-        x: 400,
-        y: 200,
-        width: 150,
-        height: 25,
-        page: currentPage,
-        required: true,
-      },
-    ];
-    
-    console.log('🔄 Using fallback fields:', fallbackFields);
-    setFields(fallbackFields);
-    
-    // Re-render fields
-    setTimeout(() => {
-      if (canvas) {
-        addFieldsToCanvas(fallbackFields);
-      }
-    }, 100);
-  };
+  const invitationMutation = useMutation({
+    mutationFn: () => matterAPI.invite(document!.data.matter.id, inviteEmail, inviteRole),
+    onSuccess: () => { setInviteEmail(''); setInviteRole('CLIENT'); },
+  });
 
   useEffect(() => {
     console.log('🎯 Canvas initialization useEffect');
@@ -298,7 +134,7 @@ const DocumentEditor: React.FC = () => {
         console.log('🎨 Creating new fabric canvas...');
         
         try {
-          const fabricCanvas = new fabric.Canvas(canvasRef.current, {
+          const fabricCanvas = new Canvas(canvasRef.current, {
             width: 800, // Will be updated when PDF loads
             height: 1000, // Will be updated when PDF loads
             selection: true,
@@ -368,7 +204,7 @@ const DocumentEditor: React.FC = () => {
     }
   }, [canvas, fields, currentPage]);
 
-  const handleFieldModified = (e: fabric.IEvent) => {
+  const handleFieldModified = (e: any) => {
     const obj = e.target;
     if (obj && obj.data) {
       const fieldId = obj.data.fieldId;
@@ -386,7 +222,7 @@ const DocumentEditor: React.FC = () => {
     }
   };
 
-  const handleFieldRemoved = (e: fabric.IEvent) => {
+  const handleFieldRemoved = (e: any) => {
     const obj = e.target;
     if (obj && obj.data) {
       const fieldId = obj.data.fieldId;
@@ -516,7 +352,7 @@ const DocumentEditor: React.FC = () => {
 
       try {
         // Create field rectangle
-        const fabricObject = new fabric.Rect({
+        const fabricObject = new Rect({
           left: x,
           top: y,
           width: field.width,
@@ -537,7 +373,7 @@ const DocumentEditor: React.FC = () => {
         let labelText;
         if (field.type === 'SIGNATURE') {
           // For signature fields, create a prominent "CLICK TO SIGN" overlay
-          labelText = new fabric.Text(field.signed ? `✓ SIGNED` : `🖊️ CLICK TO SIGN`, {
+          labelText = new FabricText(field.signed ? `✓ SIGNED` : `🖊️ CLICK TO SIGN`, {
             left: x + (field.width / 2),
             top: y + (field.height / 2),
             fontSize: 18,
@@ -552,7 +388,7 @@ const DocumentEditor: React.FC = () => {
             textAlign: 'center',
             originX: 'center',
             originY: 'center',
-            shadow: new fabric.Shadow({
+            shadow: new Shadow({
               color: 'rgba(0, 0, 0, 0.3)',
               blur: 5,
               offsetX: 2,
@@ -584,7 +420,7 @@ const DocumentEditor: React.FC = () => {
           });
         } else {
           // For other field types, use regular label
-          labelText = new fabric.Text(`${field.label}`, {
+          labelText = new FabricText(`${field.label}`, {
             left: x + 5,
             top: y + 5,
             fontSize: 12,
@@ -598,7 +434,7 @@ const DocumentEditor: React.FC = () => {
         console.log('✅ Created fabric text');
 
         // Set field data for identification
-        fabricObject.data = { fieldId: field.id, fieldType: field.type };
+        (fabricObject as any).data = { fieldId: field.id, fieldType: field.type };
         
         // Add click handler for signature fields
         if (field.type === 'SIGNATURE') {
@@ -614,7 +450,7 @@ const DocumentEditor: React.FC = () => {
             moveCursor: 'pointer',
             rx: 12, // Rounded corners for button-like appearance
             ry: 12,
-            shadow: new fabric.Shadow({
+            shadow: new Shadow({
               color: 'rgba(0, 0, 0, 0.4)',
               blur: 8,
               offsetX: 3,
@@ -831,6 +667,26 @@ const DocumentEditor: React.FC = () => {
           <Typography variant="subtitle2" gutterBottom>
             Field Tools
           </Typography>
+          <Chip label={`Legal review: ${document.data.legalReviewStatus}`} color={document.data.legalReviewStatus === 'APPROVED' ? 'success' : document.data.legalReviewStatus === 'REJECTED' ? 'error' : 'warning'} sx={{ mb: 2 }} />
+
+          {document.data.matter?.members?.[0]?.role === 'COUNSEL' && document.data.senderId !== document.data.matter?.members?.[0]?.userId && (
+            <Box sx={{ mb: 2 }}>
+              <TextField fullWidth multiline minRows={2} label="Independent legal-review rationale" value={reviewRationale} onChange={event => setReviewRationale(event.target.value)} sx={{ mb: 1 }} />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button size="small" color="success" variant="outlined" disabled={reviewRationale.trim().length < 20 || legalReviewMutation.isPending} onClick={() => legalReviewMutation.mutate('APPROVED')}>Approve</Button>
+                <Button size="small" color="error" variant="outlined" disabled={reviewRationale.trim().length < 20 || legalReviewMutation.isPending} onClick={() => legalReviewMutation.mutate('REJECTED')}>Reject</Button>
+              </Box>
+            </Box>
+          )}
+
+          {['OWNER', 'COUNSEL'].includes(document.data.matter?.members?.[0]?.role) && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2">Invite matter participant</Typography>
+              <TextField fullWidth size="small" type="email" label="Email" value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} sx={{ my: 1 }} />
+              <FormControl fullWidth size="small" sx={{ mb: 1 }}><InputLabel>Role</InputLabel><Select label="Role" value={inviteRole} onChange={event => setInviteRole(event.target.value)}>{['COUNSEL', 'PARALEGAL', 'CLIENT', 'WITNESS', 'AUDITOR'].map(role => <MenuItem key={role} value={role}>{role}</MenuItem>)}</Select></FormControl>
+              <Button fullWidth size="small" variant="outlined" disabled={!inviteEmail || invitationMutation.isPending} onClick={() => invitationMutation.mutate()}>Send invitation</Button>
+            </Box>
+          )}
           
           <List>
             {fieldTools.map((tool) => (
@@ -857,79 +713,6 @@ const DocumentEditor: React.FC = () => {
 
           <Button
             fullWidth
-            variant="outlined"
-            startIcon={<AIIcon />}
-            onClick={() => {
-              console.log('🤖 AI Generate Overlay button clicked for page:', currentPage);
-              detectFieldsMutation.mutate();
-            }}
-            disabled={detectFieldsMutation.isPending}
-            sx={{ mt: 1, mb: 1 }}
-            title="Generate signature overlay using AI vision"
-          >
-            {detectFieldsMutation.isPending ? 'Generating Overlay...' : 'AI Generate Overlay'}
-          </Button>
-
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<AIIcon />}
-            onClick={() => {
-              console.log('🤖 AI Detect Fields button clicked');
-              // Use the legacy detect fields method
-              aiAPI.detectFields(id!).then((data) => {
-                console.log('🤖 AI API Response:', data);
-                const overlaysArray = data.data?.overlays || data.data?.data || data.data || [];
-                console.log('🤖 Signature overlays array:', overlaysArray);
-                
-                if (Array.isArray(overlaysArray) && overlaysArray.length > 0) {
-                  const signatureFields = overlaysArray.map((overlay: any, index: number) => ({
-                    id: `signature-overlay-${Date.now()}-${index}`,
-                    type: 'SIGNATURE' as const,
-                    label: overlay.label || `Signature ${index + 1}`,
-                    x: overlay.x || (50 + (index % 2) * 300),
-                    y: overlay.y || (100 + Math.floor(index / 2) * 120),
-                    width: overlay.width || 250,
-                    height: overlay.height || 80,
-                    page: overlay.page || 1,
-                    required: overlay.required !== false,
-                    signatureText: overlay.signatureText || '',
-                    overlayType: 'CLICK_TO_SIGN'
-                  }));
-                  
-                  setFields(signatureFields);
-                  
-                  // Navigate to page with most fields
-                  const fieldsByPage = signatureFields.reduce((acc, field) => {
-                    acc[field.page] = (acc[field.page] || 0) + 1;
-                    return acc;
-                  }, {} as Record<number, number>);
-                  
-                  const pageWithMostFields = Object.entries(fieldsByPage)
-                    .sort(([,a], [,b]) => b - a)[0]?.[0];
-                  
-                  if (pageWithMostFields && parseInt(pageWithMostFields) !== currentPage) {
-                    setCurrentPage(parseInt(pageWithMostFields));
-                  }
-                }
-              }).catch((error) => {
-                console.error('❌ AI field detection failed:', error);
-                createFallbackFields();
-              });
-            }}
-            sx={{ mt: 1, mb: 2 }}
-            title="Detect signature fields using AI text analysis"
-          >
-            AI Detect Fields
-          </Button>
-          {detectFieldsMutation.error && (
-            <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-              AI detection failed. Using fallback fields.
-            </Typography>
-          )}
-
-          <Button
-            fullWidth
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={saveFields}
@@ -945,102 +728,9 @@ const DocumentEditor: React.FC = () => {
             color="success"
             startIcon={<SendIcon />}
             onClick={() => setSendDialogOpen(true)}
-            disabled={fields.length === 0}
+            disabled={fields.length === 0 || document.data.legalReviewStatus !== 'APPROVED'}
           >
             Send for Signature
-          </Button>
-
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={() => {
-              console.log('Manual render test - fields:', fields);
-              console.log('Canvas ready:', !!canvas);
-              if (canvas) {
-                addFieldsToCanvas(fields);
-              }
-            }}
-            sx={{ mt: 1, mb: 1 }}
-          >
-            DEBUG: Force Render Fields
-          </Button>
-
-          <Button
-            fullWidth
-            variant="contained"
-            color="warning"
-            onClick={() => {
-              console.log('🧪 Creating comprehensive test signature fields on both pages');
-              const testFields: DocumentField[] = [
-                // Page 1 fields
-                {
-                  id: `test-sig-${Date.now()}-1`,
-                  type: 'SIGNATURE' as const,
-                  label: 'Client Initial',
-                  x: 200,
-                  y: 120,
-                  width: 150,
-                  height: 40,
-                  page: 1,
-                  required: true,
-                },
-                {
-                  id: `test-sig-${Date.now()}-2`,
-                  type: 'SIGNATURE' as const,
-                  label: 'Provider Initial',
-                  x: 200,
-                  y: 80,
-                  width: 150,
-                  height: 40,
-                  page: 1,
-                  required: true,
-                },
-                // Page 2 fields
-                {
-                  id: `test-sig-${Date.now()}-3`,
-                  type: 'SIGNATURE' as const,
-                  label: 'Client Final Signature',
-                  x: 200,
-                  y: 350,
-                  width: 200,
-                  height: 50,
-                  page: 2,
-                  required: true,
-                },
-                {
-                  id: `test-sig-${Date.now()}-4`,
-                  type: 'SIGNATURE' as const,
-                  label: 'Provider Final Signature',
-                  x: 200,
-                  y: 250,
-                  width: 200,
-                  height: 50,
-                  page: 2,
-                  required: true,
-                },
-                {
-                  id: `test-sig-${Date.now()}-5`,
-                  type: 'SIGNATURE' as const,
-                  label: 'Witness Signature',
-                  x: 200,
-                  y: 150,
-                  width: 200,
-                  height: 50,
-                  page: 2,
-                  required: false,
-                },
-              ];
-              setFields(testFields);
-              console.log('🧪 Test fields created:', testFields);
-              
-              // Navigate to page 2 where most signatures are
-              if (currentPage === 1) {
-                setCurrentPage(2);
-              }
-            }}
-            sx={{ mt: 1 }}
-          >
-            TEST: Add All Signature Fields
           </Button>
 
           <Box sx={{ mt: 3 }}>
@@ -1136,7 +826,7 @@ const DocumentEditor: React.FC = () => {
             }}
           >
             <Document
-              file={document.data.fileUrl}
+              file={download?.data?.url}
               onLoadSuccess={({ numPages }) => setNumPages(numPages)}
               loading={<Typography>Loading PDF...</Typography>}
             >
@@ -1160,8 +850,7 @@ const DocumentEditor: React.FC = () => {
                       
                       console.log('🎨 Updating canvas size:', { pdfWidth, pdfHeight });
                       
-                      canvas.setWidth(pdfWidth);
-                      canvas.setHeight(pdfHeight);
+                      canvas.setDimensions({ width: pdfWidth, height: pdfHeight });
                       canvas.calcOffset();
                       
                       // Update canvas element size

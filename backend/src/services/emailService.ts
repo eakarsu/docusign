@@ -12,6 +12,7 @@ interface SignatureRequestData {
   documentTitle: string;
   senderName: string;
   signerName: string;
+  signerEmail: string;
   documentId: string;
   signUrl: string;
 }
@@ -29,6 +30,7 @@ export class EmailService {
 
   static async sendEmail(options: EmailOptions): Promise<void> {
     try {
+      if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) throw new Error('SMTP_CONFIGURATION_REQUIRED');
       await this.transporter.sendMail({
         from: `"DocuSign AI" <${process.env.SMTP_USER}>`,
         to: options.to,
@@ -45,7 +47,11 @@ export class EmailService {
   }
 
   static async sendSignatureRequest(data: SignatureRequestData): Promise<void> {
-    const subject = `Signature Request: ${data.documentTitle}`;
+    const subject = `Signature Request: ${data.documentTitle.replace(/[\r\n]/g, ' ')}`;
+    const documentTitle = escapeHtml(data.documentTitle);
+    const senderName = escapeHtml(data.senderName);
+    const signerName = escapeHtml(data.signerName);
+    const signUrl = escapeHtml(data.signUrl);
     
     const html = `
       <!DOCTYPE html>
@@ -77,13 +83,13 @@ export class EmailService {
             <h1>📝 Signature Request</h1>
           </div>
           <div class="content">
-            <h2>Hello ${data.signerName},</h2>
-            <p>${data.senderName} has sent you a document to sign:</p>
-            <h3>"${data.documentTitle}"</h3>
+            <h2>Hello ${signerName},</h2>
+            <p>${senderName} has sent you a document to sign:</p>
+            <h3>"${documentTitle}"</h3>
             <p>Please review and sign the document by clicking the button below:</p>
-            <a href="${data.signUrl}" class="button">Review & Sign Document</a>
+            <a href="${signUrl}" class="button">Review & Sign Document</a>
             <p><strong>Important:</strong> This is a legally binding document. Please review it carefully before signing.</p>
-            <p>If you have any questions, please contact ${data.senderName} directly.</p>
+            <p>If you have any questions, please contact ${senderName} directly.</p>
           </div>
           <div class="footer">
             <p>This email was sent by DocuSign AI Clone. If you received this email in error, please ignore it.</p>
@@ -108,7 +114,7 @@ export class EmailService {
     `;
 
     await this.sendEmail({
-      to: data.signerName,
+      to: data.signerEmail,
       subject,
       html,
       text,
@@ -121,7 +127,9 @@ export class EmailService {
     senderName: string;
     completedAt: string;
   }): Promise<void> {
-    const subject = `Document Completed: ${data.documentTitle}`;
+    const subject = `Document Completed: ${data.documentTitle.replace(/[\r\n]/g, ' ')}`;
+    const documentTitle = escapeHtml(data.documentTitle);
+    const senderName = escapeHtml(data.senderName);
     
     const html = `
       <!DOCTYPE html>
@@ -144,9 +152,9 @@ export class EmailService {
             <h1>✅ Document Completed</h1>
           </div>
           <div class="content">
-            <h2>Hello ${data.senderName},</h2>
+            <h2>Hello ${senderName},</h2>
             <p>Great news! Your document has been fully signed:</p>
-            <h3>"${data.documentTitle}"</h3>
+            <h3>"${documentTitle}"</h3>
             <p><strong>Completed on:</strong> ${new Date(data.completedAt).toLocaleString()}</p>
             <p>All required signatures have been collected. You can now download the completed document from your dashboard.</p>
           </div>
@@ -166,7 +174,11 @@ export class EmailService {
   }
 
   static async sendSignatureReminder(data: SignatureRequestData): Promise<void> {
-    const subject = `Reminder: Signature Required for ${data.documentTitle}`;
+    const subject = `Reminder: Signature Required for ${data.documentTitle.replace(/[\r\n]/g, ' ')}`;
+    const documentTitle = escapeHtml(data.documentTitle);
+    const senderName = escapeHtml(data.senderName);
+    const signerName = escapeHtml(data.signerName);
+    const signUrl = escapeHtml(data.signUrl);
     
     const html = `
       <!DOCTYPE html>
@@ -198,13 +210,13 @@ export class EmailService {
             <h1>⏰ Signature Reminder</h1>
           </div>
           <div class="content">
-            <h2>Hello ${data.signerName},</h2>
+            <h2>Hello ${signerName},</h2>
             <p>This is a friendly reminder that you have a document waiting for your signature:</p>
-            <h3>"${data.documentTitle}"</h3>
-            <p>Sent by: ${data.senderName}</p>
+            <h3>"${documentTitle}"</h3>
+            <p>Sent by: ${senderName}</p>
             <p>Please take a moment to review and sign the document:</p>
-            <a href="${data.signUrl}" class="button">Sign Document Now</a>
-            <p>If you have any questions, please contact ${data.senderName} directly.</p>
+            <a href="${signUrl}" class="button">Sign Document Now</a>
+            <p>If you have any questions, please contact ${senderName} directly.</p>
           </div>
           <div class="footer">
             <p>This email was sent by DocuSign AI Clone.</p>
@@ -215,9 +227,49 @@ export class EmailService {
     `;
 
     await this.sendEmail({
-      to: data.signerName,
+      to: data.signerEmail,
       subject,
       html,
     });
   }
+
+  static async sendVerification(data: { to: string; firstName: string; token: string }) {
+    const base = process.env.FRONTEND_URL;
+    if (!base) throw new Error('FRONTEND_URL_REQUIRED');
+    const url = `${base.replace(/\/$/, '')}/verify-email/${encodeURIComponent(data.token)}`;
+    await this.sendEmail({
+      to: data.to,
+      subject: 'Verify your signing-workflow account',
+      text: `Hello ${data.firstName}, verify your account using this one-time link: ${url}`,
+      html: `<p>Hello ${escapeHtml(data.firstName)},</p><p>Verify your account using this one-time link:</p><p><a href="${escapeHtml(url)}">Verify account</a></p>`,
+    });
+  }
+
+  static async sendPasswordReset(data: { to: string; firstName: string; token: string }) {
+    const base = process.env.FRONTEND_URL;
+    if (!base) throw new Error('FRONTEND_URL_REQUIRED');
+    const url = `${base.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(data.token)}`;
+    await this.sendEmail({
+      to: data.to,
+      subject: 'Reset your signing-workflow password',
+      text: `Hello ${data.firstName}, reset your password using this one-time link: ${url}`,
+      html: `<p>Hello ${escapeHtml(data.firstName)},</p><p>Reset your password using this one-time link:</p><p><a href="${escapeHtml(url)}">Reset password</a></p>`,
+    });
+  }
+
+  static async sendMatterInvitation(data: { to: string; inviterName: string; matterName: string; token: string }) {
+    const base = process.env.FRONTEND_URL;
+    if (!base) throw new Error('FRONTEND_URL_REQUIRED');
+    const url = `${base.replace(/\/$/, '')}/register?invitation=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.to)}`;
+    await this.sendEmail({
+      to: data.to,
+      subject: `Invitation to ${data.matterName.replace(/[\r\n]/g, ' ')}`,
+      text: `${data.inviterName} invited you to the matter “${data.matterName}”. Accept the one-time invitation: ${url}`,
+      html: `<p>${escapeHtml(data.inviterName)} invited you to the matter <strong>${escapeHtml(data.matterName)}</strong>.</p><p><a href="${escapeHtml(url)}">Accept invitation</a></p>`,
+    });
+  }
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] as string));
 }
