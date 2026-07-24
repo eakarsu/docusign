@@ -43,6 +43,14 @@ router.post('/suggest-template', async (req: AuthRequest, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.post('/operational-risk-review', async (req: AuthRequest, res, next) => {
+  try {
+    const prompt = String(req.body?.prompt || '').trim();
+    if (prompt.length < 20 || prompt.length > 4_000) return res.status(400).json({ error: 'prompt must contain between 20 and 4000 characters' });
+    return res.json(await service.operationalRiskReview(prompt, actor(req)));
+  } catch (error) { return next(error); }
+});
+
 router.all(['/detect-fields/:documentId', '/generate-overlay/:documentId/:pageNumber'], (_req, res) => res.status(410).json({ error: 'Legacy simulated AI field detection is disabled; configure deterministic fields on a reviewed document version.' }));
 
 export default router;

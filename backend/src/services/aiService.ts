@@ -10,8 +10,11 @@ function provider() {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const model = process.env.OPENROUTER_MODEL;
   const modelVersion = process.env.OPENROUTER_MODEL_VERSION;
-  if (!apiKey || !model || !modelVersion) throw createError('AI_PROVIDER_MODEL_AND_VERSION_REQUIRED', 503);
-  return { client: new OpenAI({ apiKey, baseURL: 'https://openrouter.ai/api/v1' }), model, modelVersion };
+  const baseURL = process.env.OPENROUTER_BASE_URL;
+  if (!apiKey || !model || !modelVersion || baseURL !== 'https://openrouter.ai/api/v1') {
+    throw createError('AI_PROVIDER_MODEL_VERSION_AND_CANONICAL_BASE_REQUIRED', 503);
+  }
+  return { client: new OpenAI({ apiKey, baseURL, timeout: Number(process.env.OPENROUTER_TIMEOUT_MS || 120_000) }), model, modelVersion };
 }
 
 const checksum = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
@@ -134,5 +137,49 @@ export class AIService {
     const words = new Set(description.toLowerCase().split(/\W+/).filter(word => word.length > 2));
     const ranked = templates.map(template => ({ template, score: [...words].filter(word => `${template.name} ${template.description || ''}`.toLowerCase().includes(word)).length })).sort((a, b) => b.score - a.score);
     return { matterId: membership.matterId, jurisdiction: membership.matter.jurisdiction, suggestions: ranked.slice(0, 5).map(item => ({ id: item.template.id, name: item.template.name, authority: item.template.authority, sourceVersion: item.template.sourceVersion, checksum: item.template.checksum, score: item.score })), deterministic: true };
+  }
+
+  async operationalRiskReview(prompt: string, actor: DocumentActor) {
+    const membership = await this.prisma.matterMember.findFirst({
+      where: { userId: actor.id, revokedAt: null, matter: { organizationId: actor.organizationId, status: 'ACTIVE' } },
+      include: { matter: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!membership) throw createError('Active matter required', 409);
+    const defended = defendLegalInput(prompt, 4_000);
+    if (!defended.accepted) throw createError(defended.reason, 422);
+    const runtime = provider();
+    const response = await runtime.client.chat.completions.create({
+      model: runtime.model,
+      messages: [
+        { role: 'system', content: `Provide bounded legal-document workflow risk analysis for jurisdiction ${membership.matter.jurisdiction}. This is advisory issue spotting, not legal advice. Require independent counsel review, authoritative source validation, explicit signer consent, immutable audit evidence, and state uncertainty. Never claim a document is legally valid.` },
+        { role: 'user', content: `${defended.instruction}\n${defended.delimited}` },
+      ],
+      temperature: 0,
+    });
+    const result = response.choices[0]?.message?.content?.trim();
+    const providerReceipt = response.id?.trim();
+    if (!result || !providerReceipt) throw createError('AI_PROVIDER_INCOMPLETE_RESPONSE', 502);
+    const output: Prisma.InputJsonValue = {
+      result,
+      providerReceipt,
+      usage: response.usage ? JSON.parse(JSON.stringify(response.usage)) : null,
+    };
+    const artifact = await this.prisma.aIArtifact.create({ data: {
+      organizationId: actor.organizationId,
+      matterId: membership.matterId,
+      kind: 'runtime-operational-risk-review',
+      provider: 'openrouter',
+      model: runtime.model,
+      modelVersion: runtime.modelVersion,
+      inputChecksum: defended.checksum,
+      outputChecksum: checksum(JSON.stringify(output)),
+      output,
+      jurisdiction: membership.matter.jurisdiction,
+      effectiveDate: new Date(),
+      promptDefense: { delimiter: 'UNTRUSTED_LEGAL_DOCUMENT', signalsChecked: true, boundedReview: true },
+      createdById: actor.id,
+    } });
+    return { artifactId: artifact.id, result, model: runtime.model, provider: 'openrouter', providerReceipt, usage: response.usage || null };
   }
 }

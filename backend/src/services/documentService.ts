@@ -200,7 +200,7 @@ export class DocumentService {
           await tx.integrationJob.update({ where: { id: job.id }, data: { status: 'COMPLETED', provider: result.provider, providerVersion: result.providerVersion, outputChecksum: stored.checksum, response: { documentVersion: nextVersion, redactionManifest: manifest } } });
           await appendAudit(tx, { organizationId: actor.organizationId, matterId: document.matterId, documentId, userId: actor.id, action: 'DOCUMENT_IRREVERSIBLY_REDACTED', details: { sourceVersion: document.currentVersion, outputVersion: nextVersion, sourceChecksum: source.checksum, outputChecksum: stored.checksum, provider: result.provider, providerVersion: result.providerVersion, markCount: redactions.length } });
           return version;
-        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30_000 });
       } catch (error) {
         await this.storage.deleteAllVersions(stored.key, actor.organizationId, document.matterId);
         throw error;
