@@ -119,6 +119,7 @@ frontend_port="${FRONTEND_PORT:-${CLIENT_PORT:-}}"
 [[ "$backend_port" =~ ^[0-9]+$ ]] || { echo "PORT must be an assigned numeric port." >&2; exit 2; }
 [[ "$frontend_port" =~ ^[0-9]+$ ]] || { echo "FRONTEND_PORT or CLIENT_PORT must be an assigned numeric port." >&2; exit 2; }
 [[ "$backend_port" != "$frontend_port" ]] || { echo "Backend and frontend ports must differ." >&2; exit 2; }
+export VITE_API_URL="${VITE_API_URL:-http://127.0.0.1:$backend_port}"
 
 for port in "$backend_port" "$frontend_port"; do
   if lsof -tiTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then

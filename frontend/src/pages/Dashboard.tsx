@@ -14,7 +14,7 @@ import {
   SmartToy as AIIcon, Person as PersonIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { documentAPI, aiAPI } from '../services/api';
+import { documentAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
@@ -47,16 +47,6 @@ const Dashboard: React.FC = () => {
     },
     onError: () => {
       showError('Failed to delete document');
-    },
-  });
-
-  const analyzeDocumentMutation = useMutation({
-    mutationFn: (documentId: string) => aiAPI.analyzeDocument(documentId),
-    onSuccess: () => {
-      showSuccess('AI analysis complete');
-    },
-    onError: () => {
-      showError('AI analysis failed');
     },
   });
 
@@ -134,7 +124,7 @@ const Dashboard: React.FC = () => {
 
   const handleAnalyzeDocument = () => {
     if (selectedDocument) {
-      analyzeDocumentMutation.mutate(selectedDocument.id);
+      navigate(`/ai-tools?feature=analysis&documentId=${encodeURIComponent(selectedDocument.id)}`);
     }
     handleDocumentMenuClose();
   };

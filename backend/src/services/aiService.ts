@@ -1,3 +1,4 @@
+import { GovernedAIService, GenerationOptions, ContractDraftInput, GovernedActor } from './governedAiService';
 import crypto from 'node:crypto';
 import OpenAI from 'openai';
 import { AIArtifactStatus, Prisma, PrismaClient } from '@prisma/client';
@@ -6,7 +7,7 @@ import { appendAudit } from '../security/audit';
 import { createError } from '../middleware/errorHandler';
 import { DocumentActor } from './documentService';
 
-function provider() {
+function provider(noRetry = false) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const model = process.env.OPENROUTER_MODEL;
   const modelVersion = process.env.OPENROUTER_MODEL_VERSION;
@@ -14,11 +15,10 @@ function provider() {
   if (!apiKey || !model || !modelVersion || baseURL !== 'https://openrouter.ai/api/v1') {
     throw createError('AI_PROVIDER_MODEL_VERSION_AND_CANONICAL_BASE_REQUIRED', 503);
   }
-  return { client: new OpenAI({ apiKey, baseURL, timeout: Number(process.env.OPENROUTER_TIMEOUT_MS || 120_000) }), model, modelVersion };
+  return { client: new OpenAI({ apiKey, baseURL, ...(noRetry ? { maxRetries: 0 } : {}), timeout: Number(process.env.OPENROUTER_TIMEOUT_MS || 120_000) }), model, modelVersion };
 }
 
 const checksum = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
-const providerJson = (raw: string) => { try { return JSON.parse(raw); } catch { throw createError('AI_OUTPUT_SCHEMA_INVALID', 502); } };
 
 export class AIService {
   constructor(private prisma = new PrismaClient()) {}
@@ -31,67 +31,20 @@ export class AIService {
     return matter;
   }
 
-  async analyzeDocument(documentId: string, actor: DocumentActor) {
-    const document = await this.prisma.document.findFirst({ where: { id: documentId, matter: { organizationId: actor.organizationId }, deletedAt: null } });
-    if (!document) throw createError('Document not found', 404);
-    await this.matter(document.matterId, actor, 'write');
-    const version = await this.prisma.documentVersion.findUniqueOrThrow({ where: { documentId_version: { documentId, version: document.currentVersion } } });
-    if (!version.ocrText) throw createError('OCR_REQUIRED_BEFORE_AI_ANALYSIS', 409);
-    const defended = defendLegalInput(version.ocrText);
-    if (!defended.accepted) throw createError(defended.reason, 422);
-    const runtime = provider();
-    const response = await runtime.client.chat.completions.create({
-      model: runtime.model,
-      messages: [
-        { role: 'system', content: `You provide advisory legal-document issue spotting, never legal advice. Jurisdiction: ${document.jurisdiction}. Effective date: ${document.effectiveDate.toISOString().slice(0, 10)}. Return strict JSON with summary:string, risks:string[], compliance:string[], suggestions:string[], citations:{quote:string,reason:string}[]; use only supplied evidence and state uncertainty.` },
-        { role: 'user', content: `${defended.instruction}\n${defended.delimited}` },
-      ],
-      temperature: 0,
-      response_format: { type: 'json_object' },
-    });
-    const raw = response.choices[0]?.message?.content;
-    if (!raw) throw createError('AI_PROVIDER_EMPTY_RESPONSE', 502);
-    const output = providerJson(raw) as { summary?: unknown; risks?: unknown; compliance?: unknown; suggestions?: unknown; citations?: unknown };
-    if (typeof output.summary !== 'string' || ![output.risks, output.compliance, output.suggestions, output.citations].every(Array.isArray)) throw createError('AI_OUTPUT_SCHEMA_INVALID', 502);
-    const artifact = await this.prisma.aIArtifact.create({ data: {
-      organizationId: actor.organizationId,
-      matterId: document.matterId,
-      documentId,
-      documentVersion: document.currentVersion,
-      kind: 'document-analysis',
-      provider: 'openrouter',
-      model: runtime.model,
-      modelVersion: runtime.modelVersion,
-      inputChecksum: defended.checksum,
-      outputChecksum: checksum(raw),
-      output: output as Prisma.InputJsonValue,
-      jurisdiction: document.jurisdiction,
-      effectiveDate: document.effectiveDate,
-      promptDefense: { delimiter: 'UNTRUSTED_LEGAL_DOCUMENT', signalsChecked: true },
-      createdById: actor.id,
-    } });
-    return { artifactId: artifact.id, status: artifact.status, advisory: true, requiresIndependentLegalReview: true, outputChecksum: artifact.outputChecksum };
+  async analyzeDocument(documentId: string, actor: GovernedActor, options: GenerationOptions & { reviewFocus?: string } = {}) {
+    return new GovernedAIService(this.prisma).analyzeDocument(documentId, actor, options);
   }
 
-  async generateContract(actor: DocumentActor, input: { matterId: string; prompt: string; contractType: string; templateId: string; jurisdiction: string; effectiveDate: Date }) {
-    const matter = await this.matter(input.matterId, actor, 'read');
-    if (matter.jurisdiction !== input.jurisdiction) throw createError('MATTER_JURISDICTION_MISMATCH', 409);
-    const template = await this.prisma.template.findFirst({ where: { id: input.templateId, organizationId: actor.organizationId, jurisdiction: input.jurisdiction, isAuthoritative: true, effectiveFrom: { lte: input.effectiveDate }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: input.effectiveDate } }] } });
-    if (!template) throw createError('EFFECTIVE_AUTHORITATIVE_TEMPLATE_REQUIRED', 409);
-    const defended = defendLegalInput(input.prompt, 20_000);
-    if (!defended.accepted) throw createError(defended.reason, 422);
-    const runtime = provider();
-    const response = await runtime.client.chat.completions.create({ model: runtime.model, messages: [
-      { role: 'system', content: `Draft an advisory ${input.contractType} using authoritative template ${template.name}, source version ${template.sourceVersion}, jurisdiction ${input.jurisdiction}, effective date ${input.effectiveDate.toISOString().slice(0, 10)}. Preserve placeholders and identify unresolved facts. Do not claim legal validity. Return JSON {contract:string, unresolvedFacts:string[], templateChecksum:string}.` },
-      { role: 'user', content: `${defended.instruction}\n${defended.delimited}` },
-    ], temperature: 0, response_format: { type: 'json_object' } });
-    const raw = response.choices[0]?.message?.content;
-    if (!raw) throw createError('AI_PROVIDER_EMPTY_RESPONSE', 502);
-    const output = providerJson(raw) as any;
-    if (typeof output.contract !== 'string' || !Array.isArray(output.unresolvedFacts)) throw createError('AI_OUTPUT_SCHEMA_INVALID', 502);
-    output.templateChecksum = template.checksum;
-    const artifact = await this.prisma.aIArtifact.create({ data: { organizationId: actor.organizationId, matterId: matter.id, kind: 'contract-draft', provider: 'openrouter', model: runtime.model, modelVersion: runtime.modelVersion, inputChecksum: defended.checksum, outputChecksum: checksum(JSON.stringify(output)), output, jurisdiction: input.jurisdiction, effectiveDate: input.effectiveDate, promptDefense: { delimiter: 'UNTRUSTED_LEGAL_DOCUMENT', signalsChecked: true, templateId: template.id, templateChecksum: template.checksum }, createdById: actor.id } });
-    return { artifactId: artifact.id, status: artifact.status, advisory: true, requiresIndependentLegalReview: true };
+  async generateContract(actor: GovernedActor, input: ContractDraftInput, options: GenerationOptions = {}) {
+    return new GovernedAIService(this.prisma).generateContract(actor, input, options);
+  }
+
+  async governedSources(actor: GovernedActor) {
+    return new GovernedAIService(this.prisma).sources(actor);
+  }
+
+  async governedHistory(actor: GovernedActor) {
+    return new GovernedAIService(this.prisma).history(actor);
   }
 
   async reviewArtifact(artifactId: string, actor: DocumentActor, decision: 'APPROVED' | 'REJECTED', rationale: string) {
@@ -139,47 +92,62 @@ export class AIService {
     return { matterId: membership.matterId, jurisdiction: membership.matter.jurisdiction, suggestions: ranked.slice(0, 5).map(item => ({ id: item.template.id, name: item.template.name, authority: item.template.authority, sourceVersion: item.template.sourceVersion, checksum: item.template.checksum, score: item.score })), deterministic: true };
   }
 
-  async operationalRiskReview(prompt: string, actor: DocumentActor) {
+  async operationalRiskHistory(actor: DocumentActor) {
+    const rows = await this.prisma.aIArtifact.findMany({ where: { createdById: actor.id, organizationId: actor.organizationId, kind: 'runtime-operational-risk-review', matter: { organizationId: actor.organizationId, members: { some: { userId: actor.id, revokedAt: null } } } }, orderBy: { createdAt: 'desc' }, take: 50 })
+    return rows.map(row => this.operationalRiskItem(row))
+  }
+
+  private operationalRiskItem(row: { id: string; matterId: string; output: Prisma.JsonValue; model: string; createdAt: Date; status: string }) {
+    const output = row.output && typeof row.output === 'object' && !Array.isArray(row.output) ? row.output : {}
+    return { id: row.id, matterId: row.matterId, prompt: typeof output.submittedPrompt === 'string' ? output.submittedPrompt : '', content: typeof output.result === 'string' ? output.result : '', model: row.model, createdAt: row.createdAt.toISOString(), status: row.status, canDelete: false, providerReceipt: { id: typeof output.providerReceipt === 'string' ? output.providerReceipt : '' } }
+  }
+
+  async operationalRiskReview(prompt: string, actor: DocumentActor & { sessionId?: string }, options: { signal?: AbortSignal; revalidate?: () => Promise<void> } = {}) {
+    const signal = options.signal || AbortSignal.timeout(60_000)
+    signal.throwIfAborted()
     const membership = await this.prisma.matterMember.findFirst({
-      where: { userId: actor.id, revokedAt: null, matter: { organizationId: actor.organizationId, status: 'ACTIVE' } },
-      include: { matter: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    if (!membership) throw createError('Active matter required', 409);
-    const defended = defendLegalInput(prompt, 4_000);
-    if (!defended.accepted) throw createError(defended.reason, 422);
-    const runtime = provider();
+      where: { userId: actor.id, revokedAt: null, matter: { organizationId: actor.organizationId, status: 'ACTIVE' } }, include: { matter: true }, orderBy: { createdAt: 'asc' },
+    })
+    if (!membership) throw createError('Active matter required', 409)
+    const access = authorizeMatter({ actor, organizationId: membership.matter.organizationId, membership, action: 'read' })
+    if (!access.allowed) throw createError(access.reason, 403)
+    const defended = defendLegalInput(prompt, 4_000)
+    if (!defended.accepted) throw createError(defended.reason, 422)
+    signal.throwIfAborted()
+    const runtime = provider(true)
     const response = await runtime.client.chat.completions.create({
-      model: runtime.model,
-      messages: [
+      model: runtime.model, messages: [
         { role: 'system', content: `Provide bounded legal-document workflow risk analysis for jurisdiction ${membership.matter.jurisdiction}. This is advisory issue spotting, not legal advice. Require independent counsel review, authoritative source validation, explicit signer consent, immutable audit evidence, and state uncertainty. Never claim a document is legally valid.` },
         { role: 'user', content: `${defended.instruction}\n${defended.delimited}` },
-      ],
-      temperature: 0,
-    });
-    const result = response.choices[0]?.message?.content?.trim();
-    const providerReceipt = response.id?.trim();
-    if (!result || !providerReceipt) throw createError('AI_PROVIDER_INCOMPLETE_RESPONSE', 502);
-    const output: Prisma.InputJsonValue = {
-      result,
-      providerReceipt,
-      usage: response.usage ? JSON.parse(JSON.stringify(response.usage)) : null,
-    };
-    const artifact = await this.prisma.aIArtifact.create({ data: {
-      organizationId: actor.organizationId,
-      matterId: membership.matterId,
-      kind: 'runtime-operational-risk-review',
-      provider: 'openrouter',
-      model: runtime.model,
-      modelVersion: runtime.modelVersion,
-      inputChecksum: defended.checksum,
-      outputChecksum: checksum(JSON.stringify(output)),
-      output,
-      jurisdiction: membership.matter.jurisdiction,
-      effectiveDate: new Date(),
-      promptDefense: { delimiter: 'UNTRUSTED_LEGAL_DOCUMENT', signalsChecked: true, boundedReview: true },
-      createdById: actor.id,
-    } });
-    return { artifactId: artifact.id, result, model: runtime.model, provider: 'openrouter', providerReceipt, usage: response.usage || null };
+      ], temperature: 0,
+    }, { signal })
+    signal.throwIfAborted()
+    const choice = response.choices[0]
+    const result = typeof choice?.message?.content === 'string' ? choice.message.content.trim() : ''
+    const providerReceipt = response.id?.trim()
+    if (!result || !providerReceipt) throw createError('AI_PROVIDER_INCOMPLETE_RESPONSE', 502)
+    if (choice?.message?.refusal || choice?.finish_reason === 'content_filter' || choice?.finish_reason === 'length') throw createError('AI_PROVIDER_INCOMPLETE_RESPONSE', 502)
+    await options.revalidate?.(); signal.throwIfAborted()
+    const output: Prisma.InputJsonValue = { result, providerReceipt, submittedPrompt: prompt, usage: response.usage ? JSON.parse(JSON.stringify(response.usage)) : null }
+    const artifact = await this.prisma.$transaction(async tx => {
+      signal.throwIfAborted()
+      const current = await tx.user.findFirst({ where: { id: actor.id, isActive: true, organizationId: actor.organizationId, role: actor.role } })
+      if (!current) throw createError('Identity changed during generation', 401)
+      if (actor.sessionId) {
+        const session = await tx.userSession.findFirst({ where: { sessionId: actor.sessionId, userId: actor.id, revokedAt: null, expiresAt: { gt: new Date() }, lastSeenAt: { gt: new Date(Date.now() - 30 * 60_000) } } })
+        if (!session || (actor.privileged && (!session.privilegedAt || session.privilegedAt <= new Date(Date.now() - 15 * 60_000)))) throw createError('Session changed during generation', 401)
+      }
+      const fresh = await tx.matterMember.findFirst({ where: { userId: actor.id, matterId: membership.matterId, revokedAt: null, matter: { organizationId: actor.organizationId, status: 'ACTIVE' } }, include: { matter: true } })
+      if (!fresh || fresh.role !== membership.role || fresh.matter.jurisdiction !== membership.matter.jurisdiction) throw createError('Matter access or context changed during generation', 409)
+      signal.throwIfAborted()
+      const row = await tx.aIArtifact.create({ data: {
+        organizationId: actor.organizationId, matterId: membership.matterId, kind: 'runtime-operational-risk-review', provider: 'openrouter', model: runtime.model, modelVersion: runtime.modelVersion,
+        inputChecksum: defended.checksum, outputChecksum: checksum(JSON.stringify(output)), output, jurisdiction: membership.matter.jurisdiction, effectiveDate: new Date(),
+        promptDefense: { delimiter: 'UNTRUSTED_LEGAL_DOCUMENT', signalsChecked: true, boundedReview: true }, createdById: actor.id,
+      } })
+      signal.throwIfAborted()
+      return row
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+    return { artifactId: artifact.id, result, model: runtime.model, provider: 'openrouter', providerReceipt, usage: response.usage || null, item: this.operationalRiskItem(artifact) }
   }
 }

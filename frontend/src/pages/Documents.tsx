@@ -16,7 +16,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import { documentAPI, aiAPI } from '../services/api';
+import { documentAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { DocumentListSkeleton } from '../components/Skeletons';
 
@@ -485,7 +485,7 @@ const Documents: React.FC = () => {
         <MenuItem onClick={() => { if (selectedDocument) navigate(`/documents/${selectedDocument.id}/edit`); handleMenuClose(); }}>
           <EditIcon sx={{ mr: 1 }} /> Edit
         </MenuItem>
-        <MenuItem onClick={() => { if (selectedDocument) { aiAPI.analyzeDocument(selectedDocument.id); showInfo('Running AI analysis...'); } handleMenuClose(); }}>
+        <MenuItem onClick={() => { if (selectedDocument) { navigate(`/ai-tools?feature=analysis&documentId=${encodeURIComponent(selectedDocument.id)}`); } handleMenuClose(); }}>
           <AIIcon sx={{ mr: 1 }} /> AI Analysis
         </MenuItem>
         <MenuItem onClick={() => { if (selectedDocument) { window.open(selectedDocument.fileUrl, '_blank'); showInfo('Download started'); } handleMenuClose(); }}>

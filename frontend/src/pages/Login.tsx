@@ -17,13 +17,18 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
+  const demoCredentialsAvailable = import.meta.env.VITE_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
+    && Boolean(import.meta.env.VITE_DEMO_EMAIL)
+    && Boolean(import.meta.env.VITE_DEMO_PASSWORD);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setLoading(true);
 
     try {
@@ -82,15 +87,16 @@ const Login: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
             <TextField margin="normal" fullWidth name="mfaCode" label="Authenticator code (if enabled)" inputMode="numeric" autoComplete="one-time-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
-            <button
+            {demoCredentialsAvailable && <button
               type="button"
-              onClick={() => { setEmail(import.meta.env.VITE_DEMO_EMAIL || ''); setPassword(import.meta.env.VITE_DEMO_PASSWORD || ''); }}
-              disabled={!import.meta.env.VITE_DEMO_EMAIL || !import.meta.env.VITE_DEMO_PASSWORD}
-              aria-label="Auto Fill Demo Credentials"
+              onClick={() => { setEmail(import.meta.env.VITE_DEMO_EMAIL || ''); setPassword(import.meta.env.VITE_DEMO_PASSWORD || ''); setError(''); setNotice('Demo credentials filled. Select Sign In to continue.'); }}
+              disabled={loading}
+              aria-label="Fill Demo Credentials"
               style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
             >
-              Auto Fill Demo Credentials
-            </button>
+              Fill Demo Credentials
+            </button>}
+            {notice && <Alert severity="info" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
             <Button
               type="submit"
               fullWidth

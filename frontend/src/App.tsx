@@ -1,3 +1,4 @@
+import AIOperations from './pages/AIOperations';
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -72,6 +73,7 @@ const AppRoutes: React.FC = () => {
         <Route path="documents/new/edit" element={<ErrorBoundary><DocumentEditor /></ErrorBoundary>} />
         <Route path="documents/:id/edit" element={<ErrorBoundary><DocumentEditor /></ErrorBoundary>} />
         <Route path="templates" element={<ErrorBoundary><Templates /></ErrorBoundary>} />
+        <Route path="ai-operations" element={<ErrorBoundary><AIOperations /></ErrorBoundary>} />
         <Route path="ai-tools" element={<ErrorBoundary><AITools /></ErrorBoundary>} />
         <Route path="profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
       </Route>

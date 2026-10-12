@@ -119,20 +119,24 @@ export const userAPI = {
 };
 
 export const aiAPI = {
-  analyzeDocument: (documentId: string) =>
-    apiClient.post(`/ai/analyze/${documentId}`),
-  generateContract: (prompt: string, contractType: string) =>
-    apiClient.post('/ai/generate-contract', { prompt, contractType }),
+  governedSources: (signal?: AbortSignal) => apiClient.get('/ai/governed-sources', { signal }),
+  governedHistory: (signal?: AbortSignal) => apiClient.get('/ai/governed-artifacts', { signal }),
+  analyzeDocument: (documentId: string, reviewFocus = '', signal?: AbortSignal) =>
+    apiClient.post(`/ai/analyze/${encodeURIComponent(documentId)}`, { reviewFocus }, { signal }),
+  generateContract: (input: { matterId: string; prompt: string; contractType: string; templateId: string; jurisdiction: string; effectiveDate: string }, signal?: AbortSignal) =>
+    apiClient.post('/ai/generate-contract', input, { signal }),
+  reviewArtifact: (id: string, decision: 'APPROVED' | 'REJECTED', rationale: string, signal?: AbortSignal) =>
+    apiClient.post(`/ai/artifacts/${encodeURIComponent(id)}/review`, { decision, rationale }, { signal }),
   detectFields: (documentId: string) =>
     apiClient.post(`/ai/detect-fields/${documentId}`),
   generateOverlay: (documentId: string, pageNumber: number, pdfImageBase64: string) =>
     apiClient.post(`/ai/generate-overlay/${documentId}/${pageNumber}`, {
       pdfImageBase64
     }),
-  compareVersions: (documentId: string, fromVersion: number, toVersion: number) =>
-    apiClient.post('/ai/compare-versions', { documentId, fromVersion, toVersion }),
-  suggestTemplate: (description: string) =>
-    apiClient.post('/ai/suggest-template', { description }),
+  compareVersions: (documentId: string, fromVersion: number, toVersion: number, signal?: AbortSignal) =>
+    apiClient.post('/ai/compare-versions', { documentId, fromVersion, toVersion }, { signal }),
+  suggestTemplate: (description: string, signal?: AbortSignal) =>
+    apiClient.post('/ai/suggest-template', { description }, { signal }),
 };
 
 export default apiClient;

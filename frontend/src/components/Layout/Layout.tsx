@@ -48,6 +48,7 @@ const Layout: React.FC = () => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'AI Operations', icon: <AIToolsIcon />, path: '/ai-operations' },
     { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
     { text: 'Templates', icon: <TemplateIcon />, path: '/templates' },
     { text: 'AI Tools', icon: <AIToolsIcon />, path: '/ai-tools' },
