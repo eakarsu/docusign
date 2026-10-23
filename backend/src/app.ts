@@ -42,6 +42,7 @@ export function createApp() {
   app.use('/api/templates', templateRoutes);
   app.use('/api/ai', aiRoutes);
 
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
   app.get('/health/live', (_req, res) => res.json({ status: 'alive', timestamp: new Date().toISOString(), uptime: process.uptime() }));
   app.get('/health/ready', async (_req, res) => {
     const checks = { database: false, objectStorage: false, malwareScanner: false };

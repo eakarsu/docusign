@@ -19,26 +19,39 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
-  const demoCredentialsAvailable = import.meta.env.VITE_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
-    && Boolean(import.meta.env.VITE_DEMO_EMAIL)
-    && Boolean(import.meta.env.VITE_DEMO_PASSWORD);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitLogin = async (loginEmail: string, loginPassword: string) => {
     setError('');
     setNotice('');
     setLoading(true);
 
     try {
-      await login(email, password, mfaCode || undefined);
+      await login(loginEmail, loginPassword, mfaCode || undefined);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitLogin(email, password);
+  };
+
+  const handleDemoFill = async () => {
+    if (import.meta.env.VITE_DEMO_EMAIL && import.meta.env.VITE_DEMO_PASSWORD) {
+      setEmail(import.meta.env.VITE_DEMO_EMAIL); setPassword(import.meta.env.VITE_DEMO_PASSWORD); return;
+    }
+    try {
+      const res = await fetch('/api/auth/demo-credentials', { cache: 'no-store' });
+      const data = await res.json();
+      if (data?.email && data?.password) { setEmail(data.email); setPassword(data.password); return; }
+    } catch {}
+    setError('Demo credentials are not configured for this environment.');
   };
 
   return (
@@ -87,15 +100,14 @@ const Login: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
             <TextField margin="normal" fullWidth name="mfaCode" label="Authenticator code (if enabled)" inputMode="numeric" autoComplete="one-time-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
-            {demoCredentialsAvailable && <button
+            <button
               type="button"
-              onClick={() => { setEmail(import.meta.env.VITE_DEMO_EMAIL || ''); setPassword(import.meta.env.VITE_DEMO_PASSWORD || ''); setError(''); setNotice('Demo credentials filled. Select Sign In to continue.'); }}
-              disabled={loading}
-              aria-label="Fill Demo Credentials"
+              onClick={handleDemoFill}
+              aria-label="Fill demo credentials"
               style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
             >
-              Fill Demo Credentials
-            </button>}
+              Fill demo credentials
+            </button>
             {notice && <Alert severity="info" role="status" sx={{ mb: 2 }}>{notice}</Alert>}
             <Button
               type="submit"
